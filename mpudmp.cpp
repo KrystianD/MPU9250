@@ -22,7 +22,7 @@ int8_t MPU9250_CLASSNAME::readBits(uint8_t regAddr, uint8_t bitStart, uint8_t le
 	// 76543210 bit numbers
 	//    xxx   args: bitStart=4, length=3
 	//    010   masked
-	//   -> 010 shifted
+	//    ->010 shifted
 	uint8_t count, b;
 	if ((count = readByte(regAddr, &b)) != 0)
 	{
@@ -79,22 +79,34 @@ int8_t MPU9250_CLASSNAME::writeByte(uint8_t regAddr, uint8_t data)
 
 int8_t MPU9250_CLASSNAME::readBytes(uint8_t regAddr, uint8_t length, uint8_t *data)
 {
+	bool r;
 #ifdef MPU9250_MULTIPLE_INSTANCES
-	mpuReadCommand(regAddr, data, length, userdata);
+	r = mpuReadCommand(regAddr, data, length, userdata);
 #else
-	mpuReadCommand(regAddr, data, length);
+	r = mpuReadCommand(regAddr, data, length);
 #endif
+	if (!r)
+	{
+		printf("err");
+		// for (;;);
+	}
 	// mpuDelayUs(50);
 	return length;
 }
 
 bool MPU9250_CLASSNAME::writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data)
 {
+	bool r;
 #ifdef MPU9250_MULTIPLE_INSTANCES
-	mpuSendCommand(regAddr, data, length, userdata);
+	r = mpuSendCommand(regAddr, data, length, userdata);
 #else
-	mpuSendCommand(regAddr, data, length);
+	r = mpuSendCommand(regAddr, data, length);
 #endif
+	if (!r)
+	{
+		printf("err");
+		// for (;;);
+	}
 	return true;
 }
 
@@ -140,74 +152,75 @@ uint8_t MPU9250_CLASSNAME::dmpGetQuaternion(int16_t *data, const uint8_t* packet
 	data[3] = ((packet[12] << 8) + packet[13]);
 	return 0;
 }
-uint8_t MPU9250_CLASSNAME::dmpGetQuaternion(Quaternion *q, const uint8_t* packet)
+// uint8_t MPU9250_CLASSNAME::dmpGetQuaternion(Quaternion *q, const uint8_t* packet)
+uint8_t MPU9250_CLASSNAME::dmpGetQuaternionFloat(float *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	int16_t qI[4];
 	uint8_t status = dmpGetQuaternion(qI, packet);
 	if (status == 0)
 	{
-		q -> w = (float)qI[0] / 16384.0f;
-		q -> x = (float)qI[1] / 16384.0f;
-		q -> y = (float)qI[2] / 16384.0f;
-		q -> z = (float)qI[3] / 16384.0f;
+		data[0] = (float)qI[0] / 16384.0f;
+		data[1] = (float)qI[1] / 16384.0f;
+		data[2] = (float)qI[2] / 16384.0f;
+		data[3] = (float)qI[3] / 16384.0f;
 		return 0;
 	}
 	return status; // int16 return value, indicates error if this line is reached
 }
 // uint8_t MPU9250_CLASSNAME::dmpSetLinearAccelFilterCoefficient(float coef);
 // uint8_t MPU9250_CLASSNAME::dmpGetLinearAccel(long *data, const uint8_t* packet);
-uint8_t MPU9250_CLASSNAME::dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity)
-{
-	// get rid of the gravity component (+1g = +8192 in standard DMP FIFO packet, sensitivity is 2g)
-	v -> x = vRaw -> x - gravity -> x * 8192;
-	v -> y = vRaw -> y - gravity -> y * 8192;
-	v -> z = vRaw -> z - gravity -> z * 8192;
-	return 0;
-}
+// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity)
+// {
+	// // get rid of the gravity component (+1g = +8192 in standard DMP FIFO packet, sensitivity is 2g)
+	// v->x = vRaw->x - gravity->x * 8192;
+	// v->y = vRaw->y - gravity->y * 8192;
+	// v->z = vRaw->z - gravity->z * 8192;
+	// return 0;
+// }
 // uint8_t MPU9250_CLASSNAME::dmpGetLinearAccelInWorld(long *data, const uint8_t* packet);
-uint8_t MPU9250_CLASSNAME::dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q)
-{
-	// rotate measured 3D acceleration vector into original state
-	// frame of reference based on orientation quaternion
-	memcpy(v, vReal, sizeof(VectorInt16));
-	v -> rotate(q);
-	return 0;
-}
+// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q)
+// {
+	// // rotate measured 3D acceleration vector into original state
+	// // frame of reference based on orientation quaternion
+	// memcpy(v, vReal, sizeof(VectorInt16));
+	// v->rotate(q);
+	// return 0;
+// }
 // uint8_t MPU9250_CLASSNAME::dmpGetGyroAndAccelSensor(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetGyroSensor(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetControlData(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetTemperature(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetGravity(long *data, const uint8_t* packet);
-uint8_t MPU9250_CLASSNAME::dmpGetGravity(VectorFloat *v, Quaternion *q)
-{
-	v -> x = 2 * (q -> x * q -> z - q -> w * q -> y);
-	v -> y = 2 * (q -> w * q -> x + q -> y * q -> z);
-	v -> z = q -> w * q -> w - q -> x * q -> x - q -> y * q -> y + q -> z * q -> z;
-	return 0;
-}
+// uint8_t MPU9250_CLASSNAME::dmpGetGravity(VectorFloat *v, Quaternion *q)
+// {
+	// v->x = 2 * (q->x * q->z - q->w * q->y);
+	// v->y = 2 * (q->w * q->x + q->y * q->z);
+	// v->z = q->w * q->w - q->x * q->x - q->y * q->y + q->z * q->z;
+	// return 0;
+// }
 // uint8_t MPU9250_CLASSNAME::dmpGetUnquantizedAccel(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetQuantizedAccel(long *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetExternalSensorData(long *data, int size, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetEIS(long *data, const uint8_t* packet);
 
-uint8_t MPU9250_CLASSNAME::dmpGetEuler(float *data, Quaternion *q)
-{
-	data[0] = atan2(2 * q -> x * q -> y - 2 * q -> w * q -> z, 2 * q -> w * q -> w + 2 * q -> x * q -> x - 1); // psi
-	data[1] = -asin(2 * q -> x * q -> z + 2 * q -> w * q -> y);                      // theta
-	data[2] = atan2(2 * q -> y * q -> z - 2 * q -> w * q -> x, 2 * q -> w * q -> w + 2 * q -> z * q -> z - 1); // phi
-	return 0;
-}
-uint8_t MPU9250_CLASSNAME::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
-{
-	// yaw: (about Z axis)
-	data[0] = atan2(2 * q -> x * q -> y - 2 * q -> w * q -> z, 2 * q -> w * q -> w + 2 * q -> x * q -> x - 1);
-	// pitch: (nose up/down, about Y axis)
-	data[1] = atan(gravity -> x / sqrt(gravity -> y * gravity -> y + gravity -> z * gravity -> z));
-	// roll: (tilt left/right, about X axis)
-	data[2] = atan(gravity -> y / sqrt(gravity -> x * gravity -> x + gravity -> z * gravity -> z));
-	return 0;
-}
+// uint8_t MPU9250_CLASSNAME::dmpGetEuler(float *data, Quaternion *q)
+// {
+	// data[0] = atan2(2 * q->x * q->y - 2 * q->w * q->z, 2 * q->w * q->w + 2 * q->x * q->x - 1); // psi
+	// data[1] = -asin(2 * q->x * q->z + 2 * q->w * q->y);                      // theta
+	// data[2] = atan2(2 * q->y * q->z - 2 * q->w * q->x, 2 * q->w * q->w + 2 * q->z * q->z - 1); // phi
+	// return 0;
+// }
+// uint8_t MPU9250_CLASSNAME::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
+// {
+	// // yaw: (about Z axis)
+	// data[0] = atan2(2 * q->x * q->y - 2 * q->w * q->z, 2 * q->w * q->w + 2 * q->x * q->x - 1);
+	// // pitch: (nose up/down, about Y axis)
+	// data[1] = atan(gravity->x / sqrt(gravity->y * gravity->y + gravity->z * gravity->z));
+	// // roll: (tilt left/right, about X axis)
+	// data[2] = atan(gravity->y / sqrt(gravity->x * gravity->x + gravity->z * gravity->z));
+	// return 0;
+// }
 
 // uint8_t MPU9250_CLASSNAME::dmpGetAccelFloat(float *data, const uint8_t* packet);
 // uint8_t MPU9250_CLASSNAME::dmpGetQuaternionFloat(float *data, const uint8_t* packet);
@@ -236,7 +249,7 @@ uint8_t MPU9250_CLASSNAME::dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8
 		if ((status = dmpProcessFIFOPacket(buf)) > 0) return status;
 
 		// increment external process count variable, if supplied
-		if (processed != 0) *processed++;
+		if (processed != 0) (*processed)++;
 	}
 	return 0;
 }

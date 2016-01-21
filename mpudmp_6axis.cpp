@@ -213,7 +213,7 @@ const unsigned char dmpUpdates[MPU9250_DMP_UPDATES_SIZE] =
 	0x00,   0x60,   0x04,   0x00, 0x40, 0x00, 0x00
 };
 
-uint8_t MPU9250::dmpInitialize()
+uint8_t MPU9250_CLASSNAME::dmpInitialize()
 {
 	// reset device
 	DEBUG_PRINTLN("Resetting MPU9250...");
@@ -331,7 +331,8 @@ uint8_t MPU9250::dmpInitialize()
 			uint8_t fifoBuffer[128];
 
 			DEBUG_PRINTLN("Current FIFO count=%d", fifoCount);
-			getFIFOBytes(fifoBuffer, fifoCount);
+			if (fifoCount > 0)
+				getFIFOBytes(fifoBuffer, fifoCount);
 
 			DEBUG_PRINTLN("Setting motion detection threshold to 2...");
 			setMotionDetectionThreshold(2);
@@ -410,7 +411,7 @@ uint8_t MPU9250::dmpInitialize()
 			DEBUG_PRINTLN("Setting up internal 42-byte (default) DMP packet buffer...");
 			dmpPacketSize = 42;
 
-			DEBUG_PRINTLN("Resetting FIFO and clearing INT status one last time...");
+			DEBUG_PRINTLN("Resetting FIFO and clearing INT status last time...");
 			resetFIFO();
 			getIntStatus();
 		}
@@ -425,10 +426,11 @@ uint8_t MPU9250::dmpInitialize()
 		DEBUG_PRINTLN("ERROR! DMP code verification failed.");
 		return 1; // main binary block loading failed
 	}
+	DEBUG_PRINTLN("Done");
 	return 0; // success
 }
 
-uint8_t MPU9250::dmpGetAccel(int32_t *data, const uint8_t* packet)
+uint8_t MPU9250_CLASSNAME::dmpGetAccel(int32_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -437,7 +439,7 @@ uint8_t MPU9250::dmpGetAccel(int32_t *data, const uint8_t* packet)
 	data[2] = ((packet[36] << 24) + (packet[37] << 16) + (packet[38] << 8) + packet[39]);
 	return 0;
 }
-uint8_t MPU9250::dmpGetAccel(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250_CLASSNAME::dmpGetAccel(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -446,16 +448,16 @@ uint8_t MPU9250::dmpGetAccel(int16_t *data, const uint8_t* packet)
 	data[2] = (packet[36] << 8) + packet[37];
 	return 0;
 }
-uint8_t MPU9250::dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
-{
-	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
-	if (packet == 0) packet = dmpPacketBuffer;
-	v -> x = (packet[28] << 8) + packet[29];
-	v -> y = (packet[32] << 8) + packet[33];
-	v -> z = (packet[36] << 8) + packet[37];
-	return 0;
-}
-uint8_t MPU9250::dmpGetGyro(int32_t *data, const uint8_t* packet)
+// uint8_t MPU9250_CLASSNAME::dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
+// {
+	// // TODO: accommodate different arrangements of sent data (ONLY default supported now)
+	// if (packet == 0) packet = dmpPacketBuffer;
+	// v -> x = (packet[28] << 8) + packet[29];
+	// v -> y = (packet[32] << 8) + packet[33];
+	// v -> z = (packet[36] << 8) + packet[37];
+	// return 0;
+// }
+uint8_t MPU9250_CLASSNAME::dmpGetGyro(int32_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -464,7 +466,7 @@ uint8_t MPU9250::dmpGetGyro(int32_t *data, const uint8_t* packet)
 	data[2] = ((packet[24] << 24) + (packet[25] << 16) + (packet[26] << 8) + packet[27]);
 	return 0;
 }
-uint8_t MPU9250::dmpGetGyro(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250_CLASSNAME::dmpGetGyro(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -473,7 +475,7 @@ uint8_t MPU9250::dmpGetGyro(int16_t *data, const uint8_t* packet)
 	data[2] = (packet[24] << 8) + packet[25];
 	return 0;
 }
-uint8_t MPU9250::dmpGetMag(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250_CLASSNAME::dmpGetMag(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
