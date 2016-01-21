@@ -36,483 +36,512 @@ THE SOFTWARE.
 
 extern uint8_t mpuDelayMs(int delayMs);
 extern uint8_t mpuDelayUs(int delayUs);
+
+#ifdef MPU9250_MULTIPLE_INSTANCES
+extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint8_t len, void* userdata);
+extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len, void* userdata);
+#else
 extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint8_t len);
 extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len);
+#endif
 
-int8_t writeByte(uint8_t devAddr, uint8_t regAddr, uint8_t data);
+#ifdef MPU9250_MULTIPLE_INSTANCES
+#define METHOD
+#else
+#define METHOD static
+#endif
 
-uint8_t mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val);
-uint8_t mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val);
+class MPU9250
+{
+public:
+#ifdef MPU9250_MULTIPLE_INSTANCES
+	void *userdata;
+#endif
+
+	METHOD uint8_t mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val);
+	METHOD uint8_t mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val);
 
 // dmp functions
-uint8_t dmpInitialize();
-bool dmpPacketAvailable();
+	METHOD uint8_t dmpInitialize();
+	METHOD bool dmpPacketAvailable();
 
-uint8_t dmpSetFIFORate(uint8_t fifoRate);
-uint8_t dmpGetFIFORate();
-uint8_t dmpGetSampleStepSizeMS();
-uint8_t dmpGetSampleFrequency();
-int32_t dmpDecodeTemperature(int8_t tempReg);
+	METHOD uint8_t dmpSetFIFORate(uint8_t fifoRate);
+	METHOD uint8_t dmpGetFIFORate();
+	METHOD uint8_t dmpGetSampleStepSizeMS();
+	METHOD uint8_t dmpGetSampleFrequency();
+	METHOD int32_t dmpDecodeTemperature(int8_t tempReg);
 
 // Register callbacks after a packet of FIFO data is processed
 //uint8_t dmpRegisterFIFORateProcess(inv_obj_func func, int16_t priority);
 //uint8_t dmpUnregisterFIFORateProcess(inv_obj_func func);
-uint8_t dmpRunFIFORateProcesses();
+	METHOD uint8_t dmpRunFIFORateProcesses();
 
 // Setup FIFO for various output
-uint8_t dmpSendQuaternion(uint_fast16_t accuracy);
-uint8_t dmpSendGyro(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendLinearAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendLinearAccelInWorld(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendControlData(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendExternalSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendGravity(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendPacketNumber(uint_fast16_t accuracy);
-uint8_t dmpSendQuantizedAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-uint8_t dmpSendEIS(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendQuaternion(uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendGyro(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendAccel(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendLinearAccel(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendLinearAccelInWorld(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendControlData(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendExternalSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendGravity(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendPacketNumber(uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendQuantizedAccel(uint_fast16_t elements, uint_fast16_t accuracy);
+	METHOD uint8_t dmpSendEIS(uint_fast16_t elements, uint_fast16_t accuracy);
 
 // Get Fixed Point data from FIFO
-uint8_t dmpGetAccel(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetAccel(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetAccel(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetQuaternion(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetQuaternion(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetQuaternion(Quaternion *q, const uint8_t* packet = 0);
-uint8_t dmpGet6AxisQuaternion(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGet6AxisQuaternion(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGet6AxisQuaternion(Quaternion *q, const uint8_t* packet = 0);
-uint8_t dmpGetRelativeQuaternion(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetRelativeQuaternion(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetRelativeQuaternion(Quaternion *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyro(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyro(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyro(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetMag(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpSetLinearAccelFilterCoefficient(float coef);
-uint8_t dmpGetLinearAccel(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccel(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccel(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity);
-uint8_t dmpGetLinearAccelInWorld(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccelInWorld(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q);
-uint8_t dmpGetGyroAndAccelSensor(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyroAndAccelSensor(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyroAndAccelSensor(VectorInt16 *g, VectorInt16 *a, const uint8_t* packet = 0);
-uint8_t dmpGetGyroSensor(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyroSensor(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGyroSensor(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetControlData(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetTemperature(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGravity(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGravity(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetGravity(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetGravity(VectorFloat *v, Quaternion *q);
-uint8_t dmpGetUnquantizedAccel(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetUnquantizedAccel(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetUnquantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetQuantizedAccel(int32_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetQuantizedAccel(int16_t *data, const uint8_t* packet = 0);
-uint8_t dmpGetQuantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
-uint8_t dmpGetExternalSensorData(int32_t *data, uint16_t size, const uint8_t* packet = 0);
-uint8_t dmpGetEIS(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetAccel(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetAccel(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetAccel(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuaternion(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuaternion(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuaternion(Quaternion *q, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGet6AxisQuaternion(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGet6AxisQuaternion(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGet6AxisQuaternion(Quaternion *q, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetRelativeQuaternion(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetRelativeQuaternion(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetRelativeQuaternion(Quaternion *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyro(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyro(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyro(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetMag(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpSetLinearAccelFilterCoefficient(float coef);
+	METHOD uint8_t dmpGetLinearAccel(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccel(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccel(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity);
+	METHOD uint8_t dmpGetLinearAccelInWorld(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccelInWorld(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q);
+	METHOD uint8_t dmpGetGyroAndAccelSensor(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyroAndAccelSensor(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyroAndAccelSensor(VectorInt16 *g, VectorInt16 *a, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyroSensor(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyroSensor(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGyroSensor(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetControlData(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetTemperature(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGravity(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGravity(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGravity(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetGravity(VectorFloat *v, Quaternion *q);
+	METHOD uint8_t dmpGetUnquantizedAccel(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetUnquantizedAccel(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetUnquantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuantizedAccel(int32_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuantizedAccel(int16_t *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetExternalSensorData(int32_t *data, uint16_t size, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetEIS(int32_t *data, const uint8_t* packet = 0);
 
-uint8_t dmpGetEuler(float *data, Quaternion *q);
-uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity);
+	METHOD uint8_t dmpGetEuler(float *data, Quaternion *q);
+	METHOD uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity);
 
 // Get Floating Point data from FIFO
-uint8_t dmpGetAccelFloat(float *data, const uint8_t* packet = 0);
-uint8_t dmpGetQuaternionFloat(float *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetAccelFloat(float *data, const uint8_t* packet = 0);
+	METHOD uint8_t dmpGetQuaternionFloat(float *data, const uint8_t* packet = 0);
 
-uint8_t dmpProcessFIFOPacket(const unsigned char *dmpData);
-uint8_t dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed = NULL);
+	METHOD uint8_t dmpProcessFIFOPacket(const unsigned char *dmpData);
+	METHOD uint8_t dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed = NULL);
 
-uint8_t dmpSetFIFOProcessedCallback(void (*func)(void));
+	METHOD uint8_t dmpSetFIFOProcessedCallback(void (*func)(void));
 
-uint8_t dmpInitFIFOParam();
-uint8_t dmpCloseFIFO();
-uint8_t dmpSetGyroDataSource(uint8_t source);
-uint8_t dmpDecodeQuantizedAccel();
-uint32_t dmpGetGyroSumOfSquare();
-uint32_t dmpGetAccelSumOfSquare();
-void dmpOverrideQuaternion(long *q);
-uint16_t dmpGetFIFOPacketSize();
+	METHOD uint8_t dmpInitFIFOParam();
+	METHOD uint8_t dmpCloseFIFO();
+	METHOD uint8_t dmpSetGyroDataSource(uint8_t source);
+	METHOD uint8_t dmpDecodeQuantizedAccel();
+	METHOD uint32_t dmpGetGyroSumOfSquare();
+	METHOD uint32_t dmpGetAccelSumOfSquare();
+	METHOD void dmpOverrideQuaternion(long *q);
+	METHOD uint16_t dmpGetFIFOPacketSize();
 // mpu functions
-void initialize();
-bool testConnection();
+	METHOD void initialize();
+	METHOD bool testConnection();
 
 // AUX_VDDIO register
-uint8_t getAuxVDDIOLevel();
-void setAuxVDDIOLevel(uint8_t level);
+	METHOD uint8_t getAuxVDDIOLevel();
+	METHOD void setAuxVDDIOLevel(uint8_t level);
 
 // SMPLRT_DIV register
-uint8_t getRate();
-void setRate(uint8_t rate);
+	METHOD uint8_t getRate();
+	METHOD void setRate(uint8_t rate);
 
 // CONFIG register
-uint8_t getExternalFrameSync();
-void setExternalFrameSync(uint8_t sync);
-uint8_t getDLPFMode();
-void setDLPFMode(uint8_t bandwidth);
+	METHOD uint8_t getExternalFrameSync();
+	METHOD void setExternalFrameSync(uint8_t sync);
+	METHOD uint8_t getDLPFMode();
+	METHOD void setDLPFMode(uint8_t bandwidth);
 
 // GYRO_CONFIG register
-uint8_t getFullScaleGyroRange();
-void setFullScaleGyroRange(uint8_t range);
+	METHOD uint8_t getFullScaleGyroRange();
+	METHOD void setFullScaleGyroRange(uint8_t range);
 
 // ACCEL_CONFIG register
-bool getAccelXSelfTest();
-void setAccelXSelfTest(bool enabled);
-bool getAccelYSelfTest();
-void setAccelYSelfTest(bool enabled);
-bool getAccelZSelfTest();
-void setAccelZSelfTest(bool enabled);
-uint8_t getFullScaleAccelRange();
-void setFullScaleAccelRange(uint8_t range);
-uint8_t getDHPFMode();
-void setDHPFMode(uint8_t mode);
+	METHOD bool getAccelXSelfTest();
+	METHOD void setAccelXSelfTest(bool enabled);
+	METHOD bool getAccelYSelfTest();
+	METHOD void setAccelYSelfTest(bool enabled);
+	METHOD bool getAccelZSelfTest();
+	METHOD void setAccelZSelfTest(bool enabled);
+	METHOD uint8_t getFullScaleAccelRange();
+	METHOD void setFullScaleAccelRange(uint8_t range);
+	METHOD uint8_t getDHPFMode();
+	METHOD void setDHPFMode(uint8_t mode);
 
 // FF_THR register
-uint8_t getFreefallDetectionThreshold();
-void setFreefallDetectionThreshold(uint8_t threshold);
+	METHOD uint8_t getFreefallDetectionThreshold();
+	METHOD void setFreefallDetectionThreshold(uint8_t threshold);
 
 // FF_DUR register
-uint8_t getFreefallDetectionDuration();
-void setFreefallDetectionDuration(uint8_t duration);
+	METHOD uint8_t getFreefallDetectionDuration();
+	METHOD void setFreefallDetectionDuration(uint8_t duration);
 
 // MOT_THR register
-uint8_t getMotionDetectionThreshold();
-void setMotionDetectionThreshold(uint8_t threshold);
+	METHOD uint8_t getMotionDetectionThreshold();
+	METHOD void setMotionDetectionThreshold(uint8_t threshold);
 
 // MOT_DUR register
-uint8_t getMotionDetectionDuration();
-void setMotionDetectionDuration(uint8_t duration);
+	METHOD uint8_t getMotionDetectionDuration();
+	METHOD void setMotionDetectionDuration(uint8_t duration);
 
 // ZRMOT_THR register
-uint8_t getZeroMotionDetectionThreshold();
-void setZeroMotionDetectionThreshold(uint8_t threshold);
+	METHOD uint8_t getZeroMotionDetectionThreshold();
+	METHOD void setZeroMotionDetectionThreshold(uint8_t threshold);
 
 // ZRMOT_DUR register
-uint8_t getZeroMotionDetectionDuration();
-void setZeroMotionDetectionDuration(uint8_t duration);
+	METHOD uint8_t getZeroMotionDetectionDuration();
+	METHOD void setZeroMotionDetectionDuration(uint8_t duration);
 
 // FIFO_EN register
-bool getTempFIFOEnabled();
-void setTempFIFOEnabled(bool enabled);
-bool getXGyroFIFOEnabled();
-void setXGyroFIFOEnabled(bool enabled);
-bool getYGyroFIFOEnabled();
-void setYGyroFIFOEnabled(bool enabled);
-bool getZGyroFIFOEnabled();
-void setZGyroFIFOEnabled(bool enabled);
-bool getAccelFIFOEnabled();
-void setAccelFIFOEnabled(bool enabled);
-bool getSlave2FIFOEnabled();
-void setSlave2FIFOEnabled(bool enabled);
-bool getSlave1FIFOEnabled();
-void setSlave1FIFOEnabled(bool enabled);
-bool getSlave0FIFOEnabled();
-void setSlave0FIFOEnabled(bool enabled);
+	METHOD bool getTempFIFOEnabled();
+	METHOD void setTempFIFOEnabled(bool enabled);
+	METHOD bool getXGyroFIFOEnabled();
+	METHOD void setXGyroFIFOEnabled(bool enabled);
+	METHOD bool getYGyroFIFOEnabled();
+	METHOD void setYGyroFIFOEnabled(bool enabled);
+	METHOD bool getZGyroFIFOEnabled();
+	METHOD void setZGyroFIFOEnabled(bool enabled);
+	METHOD bool getAccelFIFOEnabled();
+	METHOD void setAccelFIFOEnabled(bool enabled);
+	METHOD bool getSlave2FIFOEnabled();
+	METHOD void setSlave2FIFOEnabled(bool enabled);
+	METHOD bool getSlave1FIFOEnabled();
+	METHOD void setSlave1FIFOEnabled(bool enabled);
+	METHOD bool getSlave0FIFOEnabled();
+	METHOD void setSlave0FIFOEnabled(bool enabled);
 
 // I2C_MST_CTRL register
-bool getMultiMasterEnabled();
-void setMultiMasterEnabled(bool enabled);
-bool getWaitForExternalSensorEnabled();
-void setWaitForExternalSensorEnabled(bool enabled);
-bool getSlave3FIFOEnabled();
-void setSlave3FIFOEnabled(bool enabled);
-bool getSlaveReadWriteTransitionEnabled();
-void setSlaveReadWriteTransitionEnabled(bool enabled);
-uint8_t getMasterClockSpeed();
-void setMasterClockSpeed(uint8_t speed);
+	METHOD bool getMultiMasterEnabled();
+	METHOD void setMultiMasterEnabled(bool enabled);
+	METHOD bool getWaitForExternalSensorEnabled();
+	METHOD void setWaitForExternalSensorEnabled(bool enabled);
+	METHOD bool getSlave3FIFOEnabled();
+	METHOD void setSlave3FIFOEnabled(bool enabled);
+	METHOD bool getSlaveReadWriteTransitionEnabled();
+	METHOD void setSlaveReadWriteTransitionEnabled(bool enabled);
+	METHOD uint8_t getMasterClockSpeed();
+	METHOD void setMasterClockSpeed(uint8_t speed);
 
 // I2C_SLV* registers (Slave 0-3)
-uint8_t getSlaveAddress(uint8_t num);
-void setSlaveAddress(uint8_t num, uint8_t address);
-uint8_t getSlaveRegister(uint8_t num);
-void setSlaveRegister(uint8_t num, uint8_t reg);
-bool getSlaveEnabled(uint8_t num);
-void setSlaveEnabled(uint8_t num, bool enabled);
-bool getSlaveWordByteSwap(uint8_t num);
-void setSlaveWordByteSwap(uint8_t num, bool enabled);
-bool getSlaveWriteMode(uint8_t num);
-void setSlaveWriteMode(uint8_t num, bool mode);
-bool getSlaveWordGroupOffset(uint8_t num);
-void setSlaveWordGroupOffset(uint8_t num, bool enabled);
-uint8_t getSlaveDataLength(uint8_t num);
-void setSlaveDataLength(uint8_t num, uint8_t length);
+	METHOD uint8_t getSlaveAddress(uint8_t num);
+	METHOD void setSlaveAddress(uint8_t num, uint8_t address);
+	METHOD uint8_t getSlaveRegister(uint8_t num);
+	METHOD void setSlaveRegister(uint8_t num, uint8_t reg);
+	METHOD bool getSlaveEnabled(uint8_t num);
+	METHOD void setSlaveEnabled(uint8_t num, bool enabled);
+	METHOD bool getSlaveWordByteSwap(uint8_t num);
+	METHOD void setSlaveWordByteSwap(uint8_t num, bool enabled);
+	METHOD bool getSlaveWriteMode(uint8_t num);
+	METHOD void setSlaveWriteMode(uint8_t num, bool mode);
+	METHOD bool getSlaveWordGroupOffset(uint8_t num);
+	METHOD void setSlaveWordGroupOffset(uint8_t num, bool enabled);
+	METHOD uint8_t getSlaveDataLength(uint8_t num);
+	METHOD void setSlaveDataLength(uint8_t num, uint8_t length);
 
 // I2C_SLV* registers (Slave 4)
-uint8_t getSlave4Address();
-void setSlave4Address(uint8_t address);
-uint8_t getSlave4Register();
-void setSlave4Register(uint8_t reg);
-void setSlave4OutputByte(uint8_t data);
-bool getSlave4Enabled();
-void setSlave4Enabled(bool enabled);
-bool getSlave4InterruptEnabled();
-void setSlave4InterruptEnabled(bool enabled);
-bool getSlave4WriteMode();
-void setSlave4WriteMode(bool mode);
-uint8_t getSlave4MasterDelay();
-void setSlave4MasterDelay(uint8_t delay);
-uint8_t getSlate4InputByte();
+	METHOD uint8_t getSlave4Address();
+	METHOD void setSlave4Address(uint8_t address);
+	METHOD uint8_t getSlave4Register();
+	METHOD void setSlave4Register(uint8_t reg);
+	METHOD void setSlave4OutputByte(uint8_t data);
+	METHOD bool getSlave4Enabled();
+	METHOD void setSlave4Enabled(bool enabled);
+	METHOD bool getSlave4InterruptEnabled();
+	METHOD void setSlave4InterruptEnabled(bool enabled);
+	METHOD bool getSlave4WriteMode();
+	METHOD void setSlave4WriteMode(bool mode);
+	METHOD uint8_t getSlave4MasterDelay();
+	METHOD void setSlave4MasterDelay(uint8_t delay);
+	METHOD uint8_t getSlate4InputByte();
 
 // I2C_MST_STATUS register
-bool getPassthroughStatus();
-bool getSlave4IsDone();
-bool getLostArbitration();
-bool getSlave4Nack();
-bool getSlave3Nack();
-bool getSlave2Nack();
-bool getSlave1Nack();
-bool getSlave0Nack();
+	METHOD bool getPassthroughStatus();
+	METHOD bool getSlave4IsDone();
+	METHOD bool getLostArbitration();
+	METHOD bool getSlave4Nack();
+	METHOD bool getSlave3Nack();
+	METHOD bool getSlave2Nack();
+	METHOD bool getSlave1Nack();
+	METHOD bool getSlave0Nack();
 
 // INT_PIN_CFG register
-bool getInterruptMode();
-void setInterruptMode(bool mode);
-bool getInterruptDrive();
-void setInterruptDrive(bool drive);
-bool getInterruptLatch();
-void setInterruptLatch(bool latch);
-bool getInterruptLatchClear();
-void setInterruptLatchClear(bool clear);
-bool getFSyncInterruptLevel();
-void setFSyncInterruptLevel(bool level);
-bool getFSyncInterruptEnabled();
-void setFSyncInterruptEnabled(bool enabled);
-bool getI2CBypassEnabled();
-void setI2CBypassEnabled(bool enabled);
-bool getClockOutputEnabled();
-void setClockOutputEnabled(bool enabled);
+	METHOD bool getInterruptMode();
+	METHOD void setInterruptMode(bool mode);
+	METHOD bool getInterruptDrive();
+	METHOD void setInterruptDrive(bool drive);
+	METHOD bool getInterruptLatch();
+	METHOD void setInterruptLatch(bool latch);
+	METHOD bool getInterruptLatchClear();
+	METHOD void setInterruptLatchClear(bool clear);
+	METHOD bool getFSyncInterruptLevel();
+	METHOD void setFSyncInterruptLevel(bool level);
+	METHOD bool getFSyncInterruptEnabled();
+	METHOD void setFSyncInterruptEnabled(bool enabled);
+	METHOD bool getI2CBypassEnabled();
+	METHOD void setI2CBypassEnabled(bool enabled);
+	METHOD bool getClockOutputEnabled();
+	METHOD void setClockOutputEnabled(bool enabled);
 
 // INT_ENABLE register
-uint8_t getIntEnabled();
-void setIntEnabled(uint8_t enabled);
-bool getIntFreefallEnabled();
-void setIntFreefallEnabled(bool enabled);
-bool getIntMotionEnabled();
-void setIntMotionEnabled(bool enabled);
-bool getIntZeroMotionEnabled();
-void setIntZeroMotionEnabled(bool enabled);
-bool getIntFIFOBufferOverflowEnabled();
-void setIntFIFOBufferOverflowEnabled(bool enabled);
-bool getIntI2CMasterEnabled();
-void setIntI2CMasterEnabled(bool enabled);
-bool getIntDataReadyEnabled();
-void setIntDataReadyEnabled(bool enabled);
+	METHOD uint8_t getIntEnabled();
+	METHOD void setIntEnabled(uint8_t enabled);
+	METHOD bool getIntFreefallEnabled();
+	METHOD void setIntFreefallEnabled(bool enabled);
+	METHOD bool getIntMotionEnabled();
+	METHOD void setIntMotionEnabled(bool enabled);
+	METHOD bool getIntZeroMotionEnabled();
+	METHOD void setIntZeroMotionEnabled(bool enabled);
+	METHOD bool getIntFIFOBufferOverflowEnabled();
+	METHOD void setIntFIFOBufferOverflowEnabled(bool enabled);
+	METHOD bool getIntI2CMasterEnabled();
+	METHOD void setIntI2CMasterEnabled(bool enabled);
+	METHOD bool getIntDataReadyEnabled();
+	METHOD void setIntDataReadyEnabled(bool enabled);
 
 // INT_STATUS register
-uint8_t getIntStatus();
-bool getIntFreefallStatus();
-bool getIntMotionStatus();
-bool getIntZeroMotionStatus();
-bool getIntFIFOBufferOverflowStatus();
-bool getIntI2CMasterStatus();
-bool getIntDataReadyStatus();
+	METHOD uint8_t getIntStatus();
+	METHOD bool getIntFreefallStatus();
+	METHOD bool getIntMotionStatus();
+	METHOD bool getIntZeroMotionStatus();
+	METHOD bool getIntFIFOBufferOverflowStatus();
+	METHOD bool getIntI2CMasterStatus();
+	METHOD bool getIntDataReadyStatus();
 
 // ACCEL_*OUT_* registers
-void getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* mx, int16_t* my, int16_t* mz);
-void getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz);
-void getAcceleration(int16_t* x, int16_t* y, int16_t* z);
-int16_t getAccelerationX();
-int16_t getAccelerationY();
-int16_t getAccelerationZ();
+	METHOD void getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* mx, int16_t* my, int16_t* mz);
+	METHOD void getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz);
+	METHOD void getAcceleration(int16_t* x, int16_t* y, int16_t* z);
+	METHOD int16_t getAccelerationX();
+	METHOD int16_t getAccelerationY();
+	METHOD int16_t getAccelerationZ();
 
 // TEMP_OUT_* registers
-int16_t getTemperature();
+	METHOD int16_t getTemperature();
 
 // GYRO_*OUT_* registers
-void getRotation(int16_t* x, int16_t* y, int16_t* z);
-int16_t getRotationX();
-int16_t getRotationY();
-int16_t getRotationZ();
+	METHOD void getRotation(int16_t* x, int16_t* y, int16_t* z);
+	METHOD int16_t getRotationX();
+	METHOD int16_t getRotationY();
+	METHOD int16_t getRotationZ();
 
 // EXT_SENS_DATA_* registers
-uint8_t getExternalSensorByte(int position);
-uint16_t getExternalSensorWord(int position);
-uint32_t getExternalSensorDWord(int position);
+	METHOD uint8_t getExternalSensorByte(int position);
+	METHOD uint16_t getExternalSensorWord(int position);
+	METHOD uint32_t getExternalSensorDWord(int position);
 
 // MOT_DETECT_STATUS register
-bool getXNegMotionDetected();
-bool getXPosMotionDetected();
-bool getYNegMotionDetected();
-bool getYPosMotionDetected();
-bool getZNegMotionDetected();
-bool getZPosMotionDetected();
-bool getZeroMotionDetected();
+	METHOD bool getXNegMotionDetected();
+	METHOD bool getXPosMotionDetected();
+	METHOD bool getYNegMotionDetected();
+	METHOD bool getYPosMotionDetected();
+	METHOD bool getZNegMotionDetected();
+	METHOD bool getZPosMotionDetected();
+	bool getZeroMotionDetected();
 
 // I2C_SLV*_DO register
-void setSlaveOutputByte(uint8_t num, uint8_t data);
+	METHOD void setSlaveOutputByte(uint8_t num, uint8_t data);
 
 // I2C_MST_DELAY_CTRL register
-bool getExternalShadowDelayEnabled();
-void setExternalShadowDelayEnabled(bool enabled);
-bool getSlaveDelayEnabled(uint8_t num);
-void setSlaveDelayEnabled(uint8_t num, bool enabled);
+	METHOD bool getExternalShadowDelayEnabled();
+	METHOD void setExternalShadowDelayEnabled(bool enabled);
+	METHOD bool getSlaveDelayEnabled(uint8_t num);
+	METHOD void setSlaveDelayEnabled(uint8_t num, bool enabled);
 
 // SIGNAL_PATH_RESET register
-void resetGyroscopePath();
-void resetAccelerometerPath();
-void resetTemperaturePath();
+	METHOD void resetGyroscopePath();
+	METHOD void resetAccelerometerPath();
+	METHOD void resetTemperaturePath();
 
 // MOT_DETECT_CTRL register
-uint8_t getAccelerometerPowerOnDelay();
-void setAccelerometerPowerOnDelay(uint8_t delay);
-uint8_t getFreefallDetectionCounterDecrement();
-void setFreefallDetectionCounterDecrement(uint8_t decrement);
-uint8_t getMotionDetectionCounterDecrement();
-void setMotionDetectionCounterDecrement(uint8_t decrement);
+	METHOD uint8_t getAccelerometerPowerOnDelay();
+	METHOD void setAccelerometerPowerOnDelay(uint8_t delay);
+	METHOD uint8_t getFreefallDetectionCounterDecrement();
+	METHOD void setFreefallDetectionCounterDecrement(uint8_t decrement);
+	METHOD uint8_t getMotionDetectionCounterDecrement();
+	METHOD void setMotionDetectionCounterDecrement(uint8_t decrement);
 
 // USER_CTRL register
-bool getFIFOEnabled();
-void setFIFOEnabled(bool enabled);
-bool getI2CMasterModeEnabled();
-void setI2CMasterModeEnabled(bool enabled);
-void switchSPIEnabled(bool enabled);
-void resetFIFO();
-void resetI2CMaster();
-void resetSensors();
+	METHOD bool getFIFOEnabled();
+	METHOD void setFIFOEnabled(bool enabled);
+	METHOD bool getI2CMasterModeEnabled();
+	METHOD void setI2CMasterModeEnabled(bool enabled);
+	METHOD void switchSPIEnabled(bool enabled);
+	METHOD void resetFIFO();
+	METHOD void resetI2CMaster();
+	METHOD void resetSensors();
 
 // PWR_MGMT_1 register
-void reset();
-bool getSleepEnabled();
-void setSleepEnabled(bool enabled);
-bool getWakeCycleEnabled();
-void setWakeCycleEnabled(bool enabled);
-bool getTempSensorEnabled();
-void setTempSensorEnabled(bool enabled);
-uint8_t getClockSource();
-void setClockSource(uint8_t source);
+	METHOD void reset();
+	METHOD bool getSleepEnabled();
+	METHOD void setSleepEnabled(bool enabled);
+	METHOD bool getWakeCycleEnabled();
+	METHOD void setWakeCycleEnabled(bool enabled);
+	METHOD bool getTempSensorEnabled();
+	METHOD void setTempSensorEnabled(bool enabled);
+	METHOD uint8_t getClockSource();
+	METHOD void setClockSource(uint8_t source);
 
 // PWR_MGMT_2 register
-uint8_t getWakeFrequency();
-void setWakeFrequency(uint8_t frequency);
-bool getStandbyXAccelEnabled();
-void setStandbyXAccelEnabled(bool enabled);
-bool getStandbyYAccelEnabled();
-void setStandbyYAccelEnabled(bool enabled);
-bool getStandbyZAccelEnabled();
-void setStandbyZAccelEnabled(bool enabled);
-bool getStandbyXGyroEnabled();
-void setStandbyXGyroEnabled(bool enabled);
-bool getStandbyYGyroEnabled();
-void setStandbyYGyroEnabled(bool enabled);
-bool getStandbyZGyroEnabled();
-void setStandbyZGyroEnabled(bool enabled);
+	METHOD uint8_t getWakeFrequency();
+	METHOD void setWakeFrequency(uint8_t frequency);
+	METHOD bool getStandbyXAccelEnabled();
+	METHOD void setStandbyXAccelEnabled(bool enabled);
+	METHOD bool getStandbyYAccelEnabled();
+	METHOD void setStandbyYAccelEnabled(bool enabled);
+	METHOD bool getStandbyZAccelEnabled();
+	METHOD void setStandbyZAccelEnabled(bool enabled);
+	METHOD bool getStandbyXGyroEnabled();
+	METHOD void setStandbyXGyroEnabled(bool enabled);
+	METHOD bool getStandbyYGyroEnabled();
+	METHOD void setStandbyYGyroEnabled(bool enabled);
+	METHOD bool getStandbyZGyroEnabled();
+	METHOD void setStandbyZGyroEnabled(bool enabled);
 
 // FIFO_COUNT_* registers
-uint16_t getFIFOCount();
+	METHOD uint16_t getFIFOCount();
 
 // FIFO_R_W register
-uint8_t getFIFOByte();
-void setFIFOByte(uint8_t data);
-void getFIFOBytes(uint8_t *data, uint8_t length);
+	METHOD uint8_t getFIFOByte();
+	METHOD void setFIFOByte(uint8_t data);
+	METHOD void getFIFOBytes(uint8_t *data, uint8_t length);
 
 // WHO_AM_I register
-uint8_t getDeviceID();
-void setDeviceID(uint8_t id);
+	METHOD uint8_t getDeviceID();
+	METHOD void setDeviceID(uint8_t id);
 
 // ======== UNDOCUMENTED/DMP REGISTERS/METHODS ========
 
 // XG_OFFS_TC register
-uint8_t getOTPBankValid();
-void setOTPBankValid(bool enabled);
-int8_t getXGyroOffsetTC();
-void setXGyroOffsetTC(int8_t offset);
+	METHOD uint8_t getOTPBankValid();
+	METHOD void setOTPBankValid(bool enabled);
+	METHOD int8_t getXGyroOffsetTC();
+	METHOD void setXGyroOffsetTC(int8_t offset);
 
 // YG_OFFS_TC register
-int8_t getYGyroOffsetTC();
-void setYGyroOffsetTC(int8_t offset);
+	METHOD int8_t getYGyroOffsetTC();
+	METHOD void setYGyroOffsetTC(int8_t offset);
 
 // ZG_OFFS_TC register
-int8_t getZGyroOffsetTC();
-void setZGyroOffsetTC(int8_t offset);
+	METHOD int8_t getZGyroOffsetTC();
+	METHOD void setZGyroOffsetTC(int8_t offset);
 
 // X_FINE_GAIN register
-int8_t getXFineGain();
-void setXFineGain(int8_t gain);
+	METHOD int8_t getXFineGain();
+	METHOD void setXFineGain(int8_t gain);
 
 // Y_FINE_GAIN register
-int8_t getYFineGain();
-void setYFineGain(int8_t gain);
+	METHOD int8_t getYFineGain();
+	METHOD void setYFineGain(int8_t gain);
 
 // Z_FINE_GAIN register
-int8_t getZFineGain();
-void setZFineGain(int8_t gain);
+	METHOD int8_t getZFineGain();
+	METHOD void setZFineGain(int8_t gain);
 
 // XA_OFFS_* registers
-int16_t getXAccelOffset();
-void setXAccelOffset(int16_t offset);
+	METHOD int16_t getXAccelOffset();
+	METHOD void setXAccelOffset(int16_t offset);
 
 // YA_OFFS_* register
-int16_t getYAccelOffset();
-void setYAccelOffset(int16_t offset);
+	METHOD int16_t getYAccelOffset();
+	METHOD void setYAccelOffset(int16_t offset);
 
 // ZA_OFFS_* register
-int16_t getZAccelOffset();
-void setZAccelOffset(int16_t offset);
+	METHOD int16_t getZAccelOffset();
+	METHOD void setZAccelOffset(int16_t offset);
 
 // XG_OFFS_USR* registers
-int16_t getXGyroOffset();
-void setXGyroOffset(int16_t offset);
+	METHOD int16_t getXGyroOffset();
+	METHOD void setXGyroOffset(int16_t offset);
 
 // YG_OFFS_USR* register
-int16_t getYGyroOffset();
-void setYGyroOffset(int16_t offset);
+	METHOD int16_t getYGyroOffset();
+	METHOD void setYGyroOffset(int16_t offset);
 
 // ZG_OFFS_USR* register
-int16_t getZGyroOffset();
-void setZGyroOffset(int16_t offset);
+	METHOD int16_t getZGyroOffset();
+	METHOD void setZGyroOffset(int16_t offset);
 
 // INT_ENABLE register (DMP functions)
-bool getIntPLLReadyEnabled();
-void setIntPLLReadyEnabled(bool enabled);
-bool getIntDMPEnabled();
-void setIntDMPEnabled(bool enabled);
+	METHOD bool getIntPLLReadyEnabled();
+	METHOD void setIntPLLReadyEnabled(bool enabled);
+	METHOD bool getIntDMPEnabled();
+	METHOD void setIntDMPEnabled(bool enabled);
 
 // DMP_INT_STATUS
-bool getDMPInt5Status();
-bool getDMPInt4Status();
-bool getDMPInt3Status();
-bool getDMPInt2Status();
-bool getDMPInt1Status();
-bool getDMPInt0Status();
+	METHOD bool getDMPInt5Status();
+	METHOD bool getDMPInt4Status();
+	METHOD bool getDMPInt3Status();
+	METHOD bool getDMPInt2Status();
+	METHOD bool getDMPInt1Status();
+	METHOD bool getDMPInt0Status();
 
 // INT_STATUS register (DMP functions)
-bool getIntPLLReadyStatus();
-bool getIntDMPStatus();
+	METHOD bool getIntPLLReadyStatus();
+	METHOD bool getIntDMPStatus();
 
 // USER_CTRL register (DMP functions)
-bool getDMPEnabled();
-void setDMPEnabled(bool enabled);
-void resetDMP();
+	METHOD bool getDMPEnabled();
+	METHOD void setDMPEnabled(bool enabled);
+	METHOD void resetDMP();
 
 // BANK_SEL register
-void setMemoryBank(uint8_t bank, bool prefetchEnabled = false, bool userBank = false);
+	METHOD void setMemoryBank(uint8_t bank, bool prefetchEnabled = false, bool userBank = false);
 
 // MEM_START_ADDR register
-void setMemoryStartAddress(uint8_t address);
+	METHOD void setMemoryStartAddress(uint8_t address);
 
 // MEM_R_W register
-uint8_t readMemoryByte();
-void writeMemoryByte(uint8_t data);
-void readMemoryBlock(uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0);
-bool writeMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0, bool verify = true, bool useProgMem = false);
-bool writeProgMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0, bool verify = true);
+	METHOD uint8_t readMemoryByte();
+	METHOD void writeMemoryByte(uint8_t data);
+	METHOD void readMemoryBlock(uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0);
+	METHOD bool writeMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0, bool verify = true, bool useProgMem = false);
+	METHOD bool writeProgMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank = 0, uint8_t address = 0, bool verify = true);
 
-bool writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool useProgMem = false);
-bool writeProgDMPConfigurationSet(const uint8_t *data, uint16_t dataSize);
+	METHOD bool writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool useProgMem = false);
+	METHOD bool writeProgDMPConfigurationSet(const uint8_t *data, uint16_t dataSize);
 
 // DMP_CFG_1 register
-uint8_t getDMPConfig1();
-void setDMPConfig1(uint8_t config);
+	METHOD uint8_t getDMPConfig1();
+	METHOD void setDMPConfig1(uint8_t config);
 
 // DMP_CFG_2 register
-uint8_t getDMPConfig2();
-void setDMPConfig2(uint8_t config);
+	METHOD uint8_t getDMPConfig2();
+	METHOD void setDMPConfig2(uint8_t config);
+
+private:
+	METHOD int8_t readBit(uint8_t regAddr, uint8_t bitStart, uint8_t *data);
+	METHOD int8_t readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data);
+	METHOD bool writeBit(uint8_t regAddr, uint8_t bitNum, uint8_t data);
+	METHOD bool writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data);
+	METHOD int8_t readByte(uint8_t regAddr, uint8_t *data);
+	METHOD int8_t writeByte(uint8_t regAddr, uint8_t data);
+	METHOD int8_t readBytes(uint8_t regAddr, uint8_t length, uint8_t *data);
+	METHOD bool writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data);
+	METHOD void writeWord(uint8_t regAddr, uint16_t data);
+};
 
 int mymain();
 

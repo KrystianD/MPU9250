@@ -213,7 +213,7 @@ const unsigned char dmpUpdates[MPU9250_DMP_UPDATES_SIZE] =
 	0x00,   0x60,   0x04,   0x00, 0x40, 0x00, 0x00
 };
 
-uint8_t dmpInitialize()
+uint8_t MPU9250::dmpInitialize()
 {
 	// reset device
 	DEBUG_PRINTLN("Resetting MPU9250...");
@@ -428,7 +428,7 @@ uint8_t dmpInitialize()
 	return 0; // success
 }
 
-uint8_t dmpGetAccel(int32_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetAccel(int32_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -437,7 +437,7 @@ uint8_t dmpGetAccel(int32_t *data, const uint8_t* packet)
 	data[2] = ((packet[36] << 24) + (packet[37] << 16) + (packet[38] << 8) + packet[39]);
 	return 0;
 }
-uint8_t dmpGetAccel(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetAccel(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -446,7 +446,7 @@ uint8_t dmpGetAccel(int16_t *data, const uint8_t* packet)
 	data[2] = (packet[36] << 8) + packet[37];
 	return 0;
 }
-uint8_t dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
+uint8_t MPU9250::dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -455,7 +455,7 @@ uint8_t dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
 	v -> z = (packet[36] << 8) + packet[37];
 	return 0;
 }
-uint8_t dmpGetGyro(int32_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetGyro(int32_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -464,7 +464,7 @@ uint8_t dmpGetGyro(int32_t *data, const uint8_t* packet)
 	data[2] = ((packet[24] << 24) + (packet[25] << 16) + (packet[26] << 8) + packet[27]);
 	return 0;
 }
-uint8_t dmpGetGyro(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetGyro(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -473,7 +473,7 @@ uint8_t dmpGetGyro(int16_t *data, const uint8_t* packet)
 	data[2] = (packet[24] << 8) + packet[25];
 	return 0;
 }
-uint8_t dmpGetMag(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetMag(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;

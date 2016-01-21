@@ -6,46 +6,17 @@
 /////// IO FUNCTIONS ////////
 
 #define READ_FLAG 0x80
-unsigned int WriteReg(uint8_t WriteAddr, uint8_t WriteData)
-{
-	mpuSendCommand(WriteAddr, &WriteData, 1);
-	return 0;
-}
-unsigned int readReg(uint8_t WriteAddr)
-{
-	uint8_t d;
-	mpuReadCommand(WriteAddr, &d, 1);
-	return d;
-}
 
-//-----------------------------------------------------------------------------------------------
-
-void readRegs(uint8_t ReadAddr, uint8_t *ReadBuf, unsigned int Bytes)
+// bit access
+int8_t MPU9250::readBit(uint8_t regAddr, uint8_t bitStart, uint8_t *data)
 {
-	mpuReadCommand(ReadAddr, ReadBuf, Bytes);
-	mpuDelayUs(50);
-}
-
-bool writeBit(uint8_t regAddr, uint8_t bitNum, uint8_t data)
-{
-	uint8_t b;
-	b = readReg(regAddr);
-	b = (data != 0) ? (b | (1 << bitNum)) : (b & ~(1 << bitNum));
-	return WriteReg(regAddr, b);
-}
-
-int8_t readByte(uint8_t regAddr, uint8_t *data)
-{
-	data[0] = readReg(regAddr);
+	uint8_t val;
+	readByte(regAddr, &val);
+	int8_t ret = val & bitStart;
+	data[0] = ret;
 	return 1;
 }
-
-int8_t writeByte(uint8_t regAddr, uint8_t data)
-{
-	return WriteReg(regAddr, data);
-}
-
-int8_t readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data)
+int8_t MPU9250::readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data)
 {
 	// 01101001 read byte
 	// 76543210 bit numbers
@@ -62,14 +33,15 @@ int8_t readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data
 	}
 	return count;
 }
-int8_t readBit(uint8_t regAddr, uint8_t bitStart, uint8_t *data)
-{
-	int8_t ret = readReg(regAddr) & bitStart;
-	data[0] = ret;
-	return 1;
-}
 
-bool writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data)
+bool MPU9250::writeBit(uint8_t regAddr, uint8_t bitNum, uint8_t data)
+{
+	uint8_t b;
+	readByte(regAddr, &b);
+	b = (data != 0) ? (b | (1 << bitNum)) : (b & ~(1 << bitNum));
+	return writeByte(regAddr, b);
+}
+bool MPU9250::writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data)
 {
 	//      010 value to write
 	// 76543210 bit numbers
@@ -94,25 +66,40 @@ bool writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data)
 	}
 }
 
-int8_t readBytes(uint8_t regAddr, uint8_t length, uint8_t *data, uint16_t timeout = 0)
+// byte access
+int8_t MPU9250::readByte(uint8_t regAddr, uint8_t *data)
 {
-	readRegs(regAddr, data, length);
+	return readBytes(regAddr, 1, data);
+}
+
+int8_t MPU9250::writeByte(uint8_t regAddr, uint8_t data)
+{
+	return writeBytes(regAddr, 1, &data);
+}
+
+int8_t MPU9250::readBytes(uint8_t regAddr, uint8_t length, uint8_t *data)
+{
+#ifdef MPU9250_MULTIPLE_INSTANCES
+	mpuReadCommand(regAddr, data, length, userdata);
+#else
+	mpuReadCommand(regAddr, data, length);
+#endif
+	// mpuDelayUs(50);
 	return length;
 }
 
-bool writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data)
+bool MPU9250::writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data)
 {
-	unsigned char tx[1 + length];
-	unsigned char rx[1 + length];
-	tx[0] = regAddr;
-	rx[0] = 0;
-
+#ifdef MPU9250_MULTIPLE_INSTANCES
+	mpuSendCommand(regAddr, data, length, userdata);
+#else
 	mpuSendCommand(regAddr, data, length);
-
+#endif
 	return true;
 }
 
-void writeWord(uint8_t regAddr, uint16_t data)
+// word access
+void MPU9250::writeWord(uint8_t regAddr, uint16_t data)
 {
 	uint8_t tbuffer[2];
 	tbuffer[0] = data >> 8;
@@ -128,12 +115,12 @@ uint16_t dmpPacketSize;
 
 #include "helper_3dmath.h"
 
-bool dmpPacketAvailable()
+bool MPU9250::dmpPacketAvailable()
 {
 	return getFIFOCount() >= dmpGetFIFOPacketSize();
 }
 
-uint8_t dmpGetQuaternion(int32_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetQuaternion(int32_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -143,7 +130,7 @@ uint8_t dmpGetQuaternion(int32_t *data, const uint8_t* packet)
 	data[3] = ((packet[12] << 24) + (packet[13] << 16) + (packet[14] << 8) + packet[15]);
 	return 0;
 }
-uint8_t dmpGetQuaternion(int16_t *data, const uint8_t* packet)
+uint8_t MPU9250::dmpGetQuaternion(int16_t *data, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	if (packet == 0) packet = dmpPacketBuffer;
@@ -153,7 +140,7 @@ uint8_t dmpGetQuaternion(int16_t *data, const uint8_t* packet)
 	data[3] = ((packet[12] << 8) + packet[13]);
 	return 0;
 }
-uint8_t dmpGetQuaternion(Quaternion *q, const uint8_t* packet)
+uint8_t MPU9250::dmpGetQuaternion(Quaternion *q, const uint8_t* packet)
 {
 	// TODO: accommodate different arrangements of sent data (ONLY default supported now)
 	int16_t qI[4];
@@ -170,7 +157,7 @@ uint8_t dmpGetQuaternion(Quaternion *q, const uint8_t* packet)
 }
 // uint8_t MPU9250::dmpSetLinearAccelFilterCoefficient(float coef);
 // uint8_t MPU9250::dmpGetLinearAccel(long *data, const uint8_t* packet);
-uint8_t dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity)
+uint8_t MPU9250::dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity)
 {
 	// get rid of the gravity component (+1g = +8192 in standard DMP FIFO packet, sensitivity is 2g)
 	v -> x = vRaw -> x - gravity -> x * 8192;
@@ -179,7 +166,7 @@ uint8_t dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravit
 	return 0;
 }
 // uint8_t MPU9250::dmpGetLinearAccelInWorld(long *data, const uint8_t* packet);
-uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q)
+uint8_t MPU9250::dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q)
 {
 	// rotate measured 3D acceleration vector into original state
 	// frame of reference based on orientation quaternion
@@ -192,7 +179,7 @@ uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion 
 // uint8_t MPU9250::dmpGetControlData(long *data, const uint8_t* packet);
 // uint8_t MPU9250::dmpGetTemperature(long *data, const uint8_t* packet);
 // uint8_t MPU9250::dmpGetGravity(long *data, const uint8_t* packet);
-uint8_t dmpGetGravity(VectorFloat *v, Quaternion *q)
+uint8_t MPU9250::dmpGetGravity(VectorFloat *v, Quaternion *q)
 {
 	v -> x = 2 * (q -> x * q -> z - q -> w * q -> y);
 	v -> y = 2 * (q -> w * q -> x + q -> y * q -> z);
@@ -204,14 +191,14 @@ uint8_t dmpGetGravity(VectorFloat *v, Quaternion *q)
 // uint8_t MPU9250::dmpGetExternalSensorData(long *data, int size, const uint8_t* packet);
 // uint8_t MPU9250::dmpGetEIS(long *data, const uint8_t* packet);
 
-uint8_t dmpGetEuler(float *data, Quaternion *q)
+uint8_t MPU9250::dmpGetEuler(float *data, Quaternion *q)
 {
 	data[0] = atan2(2 * q -> x * q -> y - 2 * q -> w * q -> z, 2 * q -> w * q -> w + 2 * q -> x * q -> x - 1); // psi
 	data[1] = -asin(2 * q -> x * q -> z + 2 * q -> w * q -> y);                      // theta
 	data[2] = atan2(2 * q -> y * q -> z - 2 * q -> w * q -> x, 2 * q -> w * q -> w + 2 * q -> z * q -> z - 1); // phi
 	return 0;
 }
-uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
+uint8_t MPU9250::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
 {
 	// yaw: (about Z axis)
 	data[0] = atan2(2 * q -> x * q -> y - 2 * q -> w * q -> z, 2 * q -> w * q -> w + 2 * q -> x * q -> x - 1);
@@ -225,7 +212,7 @@ uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
 // uint8_t MPU9250::dmpGetAccelFloat(float *data, const uint8_t* packet);
 // uint8_t MPU9250::dmpGetQuaternionFloat(float *data, const uint8_t* packet);
 
-uint8_t dmpProcessFIFOPacket(const unsigned char *dmpData)
+uint8_t MPU9250::dmpProcessFIFOPacket(const unsigned char *dmpData)
 {
 	/*for (uint8_t k = 0; k < dmpPacketSize; k++) {
 	    if (dmpData[k] < 0x10) Serial.print("0");
@@ -236,7 +223,7 @@ uint8_t dmpProcessFIFOPacket(const unsigned char *dmpData)
 	//Serial.println((uint16_t)dmpPacketBuffer);
 	return 0;
 }
-uint8_t dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed)
+uint8_t MPU9250::dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed)
 {
 	uint8_t status;
 	uint8_t buf[dmpPacketSize];
@@ -263,7 +250,7 @@ uint8_t dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed)
 // uint32_t MPU9250::dmpGetGyroSumOfSquare();
 // uint32_t MPU9250::dmpGetAccelSumOfSquare();
 // void MPU9250::dmpOverrideQuaternion(long *q);
-uint16_t dmpGetFIFOPacketSize()
+uint16_t MPU9250::dmpGetFIFOPacketSize()
 {
 	return dmpPacketSize;
 }
@@ -279,7 +266,7 @@ uint16_t dmpGetFIFOPacketSize()
  * the clock source to use the X Gyro for reference, which is slightly better than
  * the default internal clock source.
  */
-void initialize()
+void MPU9250::initialize()
 {
 	setClockSource(MPU9250_CLOCK_PLL_XGYRO);
 #ifdef	DEBUG
@@ -300,7 +287,7 @@ void initialize()
  * Make sure the device is connected and responds as expected.
  * @return True if connection is valid, false otherwise
  */
-bool testConnection()
+bool MPU9250::testConnection()
 {
 	return getDeviceID() == 0x38;
 }
@@ -313,7 +300,7 @@ bool testConnection()
  * the MPU-6000, which does not have a VLOGIC pin.
  * @return I2C supply voltage level (0=VLOGIC, 1=VDD)
  */
-uint8_t getAuxVDDIOLevel()
+uint8_t MPU9250::getAuxVDDIOLevel()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_YG_OFFS_TC, MPU9250_TC_PWR_MODE_BIT, buffer);
@@ -325,7 +312,7 @@ uint8_t getAuxVDDIOLevel()
  * the MPU-6000, which does not have a VLOGIC pin.
  * @param level I2C supply voltage level (0=VLOGIC, 1=VDD)
  */
-void setAuxVDDIOLevel(uint8_t level)
+void MPU9250::setAuxVDDIOLevel(uint8_t level)
 {
 	writeBit(MPU9250_RA_YG_OFFS_TC, MPU9250_TC_PWR_MODE_BIT, level);
 }
@@ -353,7 +340,7 @@ void setAuxVDDIOLevel(uint8_t level)
  * @return Current sample rate
  * @see MPU9250_RA_SMPLRT_DIV
  */
-uint8_t getRate()
+uint8_t MPU9250::getRate()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_SMPLRT_DIV, buffer);
@@ -364,7 +351,7 @@ uint8_t getRate()
  * @see getRate()
  * @see MPU9250_RA_SMPLRT_DIV
  */
-void setRate(uint8_t rate)
+void MPU9250::setRate(uint8_t rate)
 {
 	writeByte(MPU9250_RA_SMPLRT_DIV, rate);
 }
@@ -398,7 +385,7 @@ void setRate(uint8_t rate)
  *
  * @return FSYNC configuration value
  */
-uint8_t getExternalFrameSync()
+uint8_t MPU9250::getExternalFrameSync()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_CONFIG, MPU9250_CFG_EXT_SYNC_SET_BIT, MPU9250_CFG_EXT_SYNC_SET_LENGTH, buffer);
@@ -409,7 +396,7 @@ uint8_t getExternalFrameSync()
  * @see MPU9250_RA_CONFIG
  * @param sync New FSYNC configuration value
  */
-void setExternalFrameSync(uint8_t sync)
+void MPU9250::setExternalFrameSync(uint8_t sync)
 {
 	writeBits(MPU9250_RA_CONFIG, MPU9250_CFG_EXT_SYNC_SET_BIT, MPU9250_CFG_EXT_SYNC_SET_LENGTH, sync);
 }
@@ -441,7 +428,7 @@ void setExternalFrameSync(uint8_t sync)
  * @see MPU9250_CFG_DLPF_CFG_BIT
  * @see MPU9250_CFG_DLPF_CFG_LENGTH
  */
-uint8_t getDLPFMode()
+uint8_t MPU9250::getDLPFMode()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_CONFIG, MPU9250_CFG_DLPF_CFG_BIT, MPU9250_CFG_DLPF_CFG_LENGTH, buffer);
@@ -455,7 +442,7 @@ uint8_t getDLPFMode()
  * @see MPU9250_CFG_DLPF_CFG_BIT
  * @see MPU9250_CFG_DLPF_CFG_LENGTH
  */
-void setDLPFMode(uint8_t mode)
+void MPU9250::setDLPFMode(uint8_t mode)
 {
 	writeBits(MPU9250_RA_CONFIG, MPU9250_CFG_DLPF_CFG_BIT, MPU9250_CFG_DLPF_CFG_LENGTH, mode);
 }
@@ -479,7 +466,7 @@ void setDLPFMode(uint8_t mode)
  * @see MPU9250_GCONFIG_FS_SEL_BIT
  * @see MPU9250_GCONFIG_FS_SEL_LENGTH
  */
-uint8_t getFullScaleGyroRange()
+uint8_t MPU9250::getFullScaleGyroRange()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_GYRO_CONFIG, MPU9250_GCONFIG_FS_SEL_BIT, MPU9250_GCONFIG_FS_SEL_LENGTH, buffer);
@@ -493,7 +480,7 @@ uint8_t getFullScaleGyroRange()
  * @see MPU9250_GCONFIG_FS_SEL_BIT
  * @see MPU9250_GCONFIG_FS_SEL_LENGTH
  */
-void setFullScaleGyroRange(uint8_t range)
+void MPU9250::setFullScaleGyroRange(uint8_t range)
 {
 	writeBits(MPU9250_RA_GYRO_CONFIG, MPU9250_GCONFIG_FS_SEL_BIT, MPU9250_GCONFIG_FS_SEL_LENGTH, range);
 }
@@ -504,7 +491,7 @@ void setFullScaleGyroRange(uint8_t range)
  * @return Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-bool getAccelXSelfTest()
+bool MPU9250::getAccelXSelfTest()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_XA_ST_BIT, buffer);
@@ -514,7 +501,7 @@ bool getAccelXSelfTest()
  * @param enabled Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-void setAccelXSelfTest(bool enabled)
+void MPU9250::setAccelXSelfTest(bool enabled)
 {
 	writeBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_XA_ST_BIT, enabled);
 }
@@ -522,7 +509,7 @@ void setAccelXSelfTest(bool enabled)
  * @return Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-bool getAccelYSelfTest()
+bool MPU9250::getAccelYSelfTest()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_YA_ST_BIT, buffer);
@@ -532,7 +519,7 @@ bool getAccelYSelfTest()
  * @param enabled Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-void setAccelYSelfTest(bool enabled)
+void MPU9250::setAccelYSelfTest(bool enabled)
 {
 	writeBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_YA_ST_BIT, enabled);
 }
@@ -540,7 +527,7 @@ void setAccelYSelfTest(bool enabled)
  * @return Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-bool getAccelZSelfTest()
+bool MPU9250::getAccelZSelfTest()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_ZA_ST_BIT, buffer);
@@ -550,7 +537,7 @@ bool getAccelZSelfTest()
  * @param enabled Self-test enabled value
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-void setAccelZSelfTest(bool enabled)
+void MPU9250::setAccelZSelfTest(bool enabled)
 {
 	writeBit(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_ZA_ST_BIT, enabled);
 }
@@ -571,7 +558,7 @@ void setAccelZSelfTest(bool enabled)
  * @see MPU9250_ACONFIG_AFS_SEL_BIT
  * @see MPU9250_ACONFIG_AFS_SEL_LENGTH
  */
-uint8_t getFullScaleAccelRange()
+uint8_t MPU9250::getFullScaleAccelRange()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_AFS_SEL_BIT, MPU9250_ACONFIG_AFS_SEL_LENGTH, buffer);
@@ -581,7 +568,7 @@ uint8_t getFullScaleAccelRange()
  * @param range New full-scale accelerometer range setting
  * @see getFullScaleAccelRange()
  */
-void setFullScaleAccelRange(uint8_t range)
+void MPU9250::setFullScaleAccelRange(uint8_t range)
 {
 	writeBits(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_AFS_SEL_BIT, MPU9250_ACONFIG_AFS_SEL_LENGTH, range);
 }
@@ -620,7 +607,7 @@ void setFullScaleAccelRange(uint8_t range)
  * @see MPU9250_DHPF_RESET
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-uint8_t getDHPFMode()
+uint8_t MPU9250::getDHPFMode()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_ACCEL_HPF_BIT, MPU9250_ACONFIG_ACCEL_HPF_LENGTH, buffer);
@@ -632,7 +619,7 @@ uint8_t getDHPFMode()
  * @see MPU9250_DHPF_RESET
  * @see MPU9250_RA_ACCEL_CONFIG
  */
-void setDHPFMode(uint8_t bandwidth)
+void MPU9250::setDHPFMode(uint8_t bandwidth)
 {
 	writeBits(MPU9250_RA_ACCEL_CONFIG, MPU9250_ACONFIG_ACCEL_HPF_BIT, MPU9250_ACONFIG_ACCEL_HPF_LENGTH, bandwidth);
 }
@@ -654,7 +641,7 @@ void setDHPFMode(uint8_t bandwidth)
  * @return Current free-fall acceleration threshold value (LSB = 2mg)
  * @see MPU9250_RA_FF_THR
  */
-uint8_t getFreefallDetectionThreshold()
+uint8_t MPU9250::getFreefallDetectionThreshold()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_FF_THR, buffer);
@@ -665,7 +652,7 @@ uint8_t getFreefallDetectionThreshold()
  * @see getFreefallDetectionThreshold()
  * @see MPU9250_RA_FF_THR
  */
-void setFreefallDetectionThreshold(uint8_t threshold)
+void MPU9250::setFreefallDetectionThreshold(uint8_t threshold)
 {
 	writeByte(MPU9250_RA_FF_THR, threshold);
 }
@@ -689,7 +676,7 @@ void setFreefallDetectionThreshold(uint8_t threshold)
  * @return Current free-fall duration threshold value (LSB = 1ms)
  * @see MPU9250_RA_FF_DUR
  */
-uint8_t getFreefallDetectionDuration()
+uint8_t MPU9250::getFreefallDetectionDuration()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_FF_DUR, buffer);
@@ -700,7 +687,7 @@ uint8_t getFreefallDetectionDuration()
  * @see getFreefallDetectionDuration()
  * @see MPU9250_RA_FF_DUR
  */
-void setFreefallDetectionDuration(uint8_t duration)
+void MPU9250::setFreefallDetectionDuration(uint8_t duration)
 {
 	writeByte(MPU9250_RA_FF_DUR, duration);
 }
@@ -726,7 +713,7 @@ void setFreefallDetectionDuration(uint8_t duration)
  * @return Current motion detection acceleration threshold value (LSB = 2mg)
  * @see MPU9250_RA_MOT_THR
  */
-uint8_t getMotionDetectionThreshold()
+uint8_t MPU9250::getMotionDetectionThreshold()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_MOT_THR, buffer);
@@ -737,7 +724,7 @@ uint8_t getMotionDetectionThreshold()
  * @see getMotionDetectionThreshold()
  * @see MPU9250_RA_MOT_THR
  */
-void setMotionDetectionThreshold(uint8_t threshold)
+void MPU9250::setMotionDetectionThreshold(uint8_t threshold)
 {
 	writeByte(MPU9250_RA_MOT_THR, threshold);
 }
@@ -759,7 +746,7 @@ void setMotionDetectionThreshold(uint8_t threshold)
  * @return Current motion detection duration threshold value (LSB = 1ms)
  * @see MPU9250_RA_MOT_DUR
  */
-uint8_t getMotionDetectionDuration()
+uint8_t MPU9250::getMotionDetectionDuration()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_MOT_DUR, buffer);
@@ -770,7 +757,7 @@ uint8_t getMotionDetectionDuration()
  * @see getMotionDetectionDuration()
  * @see MPU9250_RA_MOT_DUR
  */
-void setMotionDetectionDuration(uint8_t duration)
+void MPU9250::setMotionDetectionDuration(uint8_t duration)
 {
 	writeByte(MPU9250_RA_MOT_DUR, duration);
 }
@@ -802,7 +789,7 @@ void setMotionDetectionDuration(uint8_t duration)
  * @return Current zero motion detection acceleration threshold value (LSB = 2mg)
  * @see MPU9250_RA_ZRMOT_THR
  */
-uint8_t getZeroMotionDetectionThreshold()
+uint8_t MPU9250::getZeroMotionDetectionThreshold()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_ZRMOT_THR, buffer);
@@ -813,7 +800,7 @@ uint8_t getZeroMotionDetectionThreshold()
  * @see getZeroMotionDetectionThreshold()
  * @see MPU9250_RA_ZRMOT_THR
  */
-void setZeroMotionDetectionThreshold(uint8_t threshold)
+void MPU9250::setZeroMotionDetectionThreshold(uint8_t threshold)
 {
 	writeByte(MPU9250_RA_ZRMOT_THR, threshold);
 }
@@ -836,7 +823,7 @@ void setZeroMotionDetectionThreshold(uint8_t threshold)
  * @return Current zero motion detection duration threshold value (LSB = 64ms)
  * @see MPU9250_RA_ZRMOT_DUR
  */
-uint8_t getZeroMotionDetectionDuration()
+uint8_t MPU9250::getZeroMotionDetectionDuration()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_ZRMOT_DUR, buffer);
@@ -847,7 +834,7 @@ uint8_t getZeroMotionDetectionDuration()
  * @see getZeroMotionDetectionDuration()
  * @see MPU9250_RA_ZRMOT_DUR
  */
-void setZeroMotionDetectionDuration(uint8_t duration)
+void MPU9250::setZeroMotionDetectionDuration(uint8_t duration)
 {
 	writeByte(MPU9250_RA_ZRMOT_DUR, duration);
 }
@@ -860,7 +847,7 @@ void setZeroMotionDetectionDuration(uint8_t duration)
  * @return Current temperature FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getTempFIFOEnabled()
+bool MPU9250::getTempFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_TEMP_FIFO_EN_BIT, buffer);
@@ -871,7 +858,7 @@ bool getTempFIFOEnabled()
  * @see getTempFIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setTempFIFOEnabled(bool enabled)
+void MPU9250::setTempFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_TEMP_FIFO_EN_BIT, enabled);
 }
@@ -881,7 +868,7 @@ void setTempFIFOEnabled(bool enabled)
  * @return Current gyroscope X-axis FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getXGyroFIFOEnabled()
+bool MPU9250::getXGyroFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_XG_FIFO_EN_BIT, buffer);
@@ -892,7 +879,7 @@ bool getXGyroFIFOEnabled()
  * @see getXGyroFIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setXGyroFIFOEnabled(bool enabled)
+void MPU9250::setXGyroFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_XG_FIFO_EN_BIT, enabled);
 }
@@ -902,7 +889,7 @@ void setXGyroFIFOEnabled(bool enabled)
  * @return Current gyroscope Y-axis FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getYGyroFIFOEnabled()
+bool MPU9250::getYGyroFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_YG_FIFO_EN_BIT, buffer);
@@ -913,7 +900,7 @@ bool getYGyroFIFOEnabled()
  * @see getYGyroFIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setYGyroFIFOEnabled(bool enabled)
+void MPU9250::setYGyroFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_YG_FIFO_EN_BIT, enabled);
 }
@@ -923,7 +910,7 @@ void setYGyroFIFOEnabled(bool enabled)
  * @return Current gyroscope Z-axis FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getZGyroFIFOEnabled()
+bool MPU9250::getZGyroFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_ZG_FIFO_EN_BIT, buffer);
@@ -934,7 +921,7 @@ bool getZGyroFIFOEnabled()
  * @see getZGyroFIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setZGyroFIFOEnabled(bool enabled)
+void MPU9250::setZGyroFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_ZG_FIFO_EN_BIT, enabled);
 }
@@ -945,7 +932,7 @@ void setZGyroFIFOEnabled(bool enabled)
  * @return Current accelerometer FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getAccelFIFOEnabled()
+bool MPU9250::getAccelFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_ACCEL_FIFO_EN_BIT, buffer);
@@ -956,7 +943,7 @@ bool getAccelFIFOEnabled()
  * @see getAccelFIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setAccelFIFOEnabled(bool enabled)
+void MPU9250::setAccelFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_ACCEL_FIFO_EN_BIT, enabled);
 }
@@ -966,7 +953,7 @@ void setAccelFIFOEnabled(bool enabled)
  * @return Current Slave 2 FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getSlave2FIFOEnabled()
+bool MPU9250::getSlave2FIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_SLV2_FIFO_EN_BIT, buffer);
@@ -977,7 +964,7 @@ bool getSlave2FIFOEnabled()
  * @see getSlave2FIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setSlave2FIFOEnabled(bool enabled)
+void MPU9250::setSlave2FIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_SLV2_FIFO_EN_BIT, enabled);
 }
@@ -987,7 +974,7 @@ void setSlave2FIFOEnabled(bool enabled)
  * @return Current Slave 1 FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getSlave1FIFOEnabled()
+bool MPU9250::getSlave1FIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_SLV1_FIFO_EN_BIT, buffer);
@@ -998,7 +985,7 @@ bool getSlave1FIFOEnabled()
  * @see getSlave1FIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setSlave1FIFOEnabled(bool enabled)
+void MPU9250::setSlave1FIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_SLV1_FIFO_EN_BIT, enabled);
 }
@@ -1008,7 +995,7 @@ void setSlave1FIFOEnabled(bool enabled)
  * @return Current Slave 0 FIFO enabled value
  * @see MPU9250_RA_FIFO_EN
  */
-bool getSlave0FIFOEnabled()
+bool MPU9250::getSlave0FIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_FIFO_EN, MPU9250_SLV0_FIFO_EN_BIT, buffer);
@@ -1019,7 +1006,7 @@ bool getSlave0FIFOEnabled()
  * @see getSlave0FIFOEnabled()
  * @see MPU9250_RA_FIFO_EN
  */
-void setSlave0FIFOEnabled(bool enabled)
+void MPU9250::setSlave0FIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_FIFO_EN, MPU9250_SLV0_FIFO_EN_BIT, enabled);
 }
@@ -1041,7 +1028,7 @@ void setSlave0FIFOEnabled(bool enabled)
  * @return Current multi-master enabled value
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-bool getMultiMasterEnabled()
+bool MPU9250::getMultiMasterEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_MULT_MST_EN_BIT, buffer);
@@ -1052,7 +1039,7 @@ bool getMultiMasterEnabled()
  * @see getMultiMasterEnabled()
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-void setMultiMasterEnabled(bool enabled)
+void MPU9250::setMultiMasterEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_MULT_MST_EN_BIT, enabled);
 }
@@ -1067,7 +1054,7 @@ void setMultiMasterEnabled(bool enabled)
  * @return Current wait-for-external-sensor-data enabled value
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-bool getWaitForExternalSensorEnabled()
+bool MPU9250::getWaitForExternalSensorEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_WAIT_FOR_ES_BIT, buffer);
@@ -1078,7 +1065,7 @@ bool getWaitForExternalSensorEnabled()
  * @see getWaitForExternalSensorEnabled()
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-void setWaitForExternalSensorEnabled(bool enabled)
+void MPU9250::setWaitForExternalSensorEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_WAIT_FOR_ES_BIT, enabled);
 }
@@ -1088,7 +1075,7 @@ void setWaitForExternalSensorEnabled(bool enabled)
  * @return Current Slave 3 FIFO enabled value
  * @see MPU9250_RA_MST_CTRL
  */
-bool getSlave3FIFOEnabled()
+bool MPU9250::getSlave3FIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_SLV_3_FIFO_EN_BIT, buffer);
@@ -1099,7 +1086,7 @@ bool getSlave3FIFOEnabled()
  * @see getSlave3FIFOEnabled()
  * @see MPU9250_RA_MST_CTRL
  */
-void setSlave3FIFOEnabled(bool enabled)
+void MPU9250::setSlave3FIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_SLV_3_FIFO_EN_BIT, enabled);
 }
@@ -1113,7 +1100,7 @@ void setSlave3FIFOEnabled(bool enabled)
  * @return Current slave read/write transition enabled value
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-bool getSlaveReadWriteTransitionEnabled()
+bool MPU9250::getSlaveReadWriteTransitionEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_I2C_MST_P_NSR_BIT, buffer);
@@ -1124,7 +1111,7 @@ bool getSlaveReadWriteTransitionEnabled()
  * @see getSlaveReadWriteTransitionEnabled()
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-void setSlaveReadWriteTransitionEnabled(bool enabled)
+void MPU9250::setSlaveReadWriteTransitionEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_CTRL, MPU9250_I2C_MST_P_NSR_BIT, enabled);
 }
@@ -1157,7 +1144,7 @@ void setSlaveReadWriteTransitionEnabled(bool enabled)
  * @return Current I2C master clock speed
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-uint8_t getMasterClockSpeed()
+uint8_t MPU9250::getMasterClockSpeed()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_I2C_MST_CTRL, MPU9250_I2C_MST_CLK_BIT, MPU9250_I2C_MST_CLK_LENGTH, buffer);
@@ -1167,7 +1154,7 @@ uint8_t getMasterClockSpeed()
  * @reparam speed Current I2C master clock speed
  * @see MPU9250_RA_I2C_MST_CTRL
  */
-void setMasterClockSpeed(uint8_t speed)
+void MPU9250::setMasterClockSpeed(uint8_t speed)
 {
 	writeBits(MPU9250_RA_I2C_MST_CTRL, MPU9250_I2C_MST_CLK_BIT, MPU9250_I2C_MST_CLK_LENGTH, speed);
 }
@@ -1215,7 +1202,7 @@ void setMasterClockSpeed(uint8_t speed)
  * @return Current address for specified slave
  * @see MPU9250_RA_I2C_SLV0_ADDR
  */
-uint8_t getSlaveAddress(uint8_t num)
+uint8_t MPU9250::getSlaveAddress(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1228,7 +1215,7 @@ uint8_t getSlaveAddress(uint8_t num)
  * @see getSlaveAddress()
  * @see MPU9250_RA_I2C_SLV0_ADDR
  */
-void setSlaveAddress(uint8_t num, uint8_t address)
+void MPU9250::setSlaveAddress(uint8_t num, uint8_t address)
 {
 	if (num > 3) return;
 	writeByte(MPU9250_RA_I2C_SLV0_ADDR + num * 3, address);
@@ -1244,7 +1231,7 @@ void setSlaveAddress(uint8_t num, uint8_t address)
  * @return Current active register for specified slave
  * @see MPU9250_RA_I2C_SLV0_REG
  */
-uint8_t getSlaveRegister(uint8_t num)
+uint8_t MPU9250::getSlaveRegister(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1257,7 +1244,7 @@ uint8_t getSlaveRegister(uint8_t num)
  * @see getSlaveRegister()
  * @see MPU9250_RA_I2C_SLV0_REG
  */
-void setSlaveRegister(uint8_t num, uint8_t reg)
+void MPU9250::setSlaveRegister(uint8_t num, uint8_t reg)
 {
 	if (num > 3) return;
 	writeByte(MPU9250_RA_I2C_SLV0_REG + num * 3, reg);
@@ -1269,7 +1256,7 @@ void setSlaveRegister(uint8_t num, uint8_t reg)
  * @return Current enabled value for specified slave
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-bool getSlaveEnabled(uint8_t num)
+bool MPU9250::getSlaveEnabled(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1282,7 +1269,7 @@ bool getSlaveEnabled(uint8_t num)
  * @see getSlaveEnabled()
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-void setSlaveEnabled(uint8_t num, bool enabled)
+void MPU9250::setSlaveEnabled(uint8_t num, bool enabled)
 {
 	if (num > 3) return;
 	writeBit(MPU9250_RA_I2C_SLV0_CTRL + num * 3, MPU9250_I2C_SLV_EN_BIT, enabled);
@@ -1298,7 +1285,7 @@ void setSlaveEnabled(uint8_t num, bool enabled)
  * @return Current word pair byte-swapping enabled value for specified slave
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-bool getSlaveWordByteSwap(uint8_t num)
+bool MPU9250::getSlaveWordByteSwap(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1311,7 +1298,7 @@ bool getSlaveWordByteSwap(uint8_t num)
  * @see getSlaveWordByteSwap()
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-void setSlaveWordByteSwap(uint8_t num, bool enabled)
+void MPU9250::setSlaveWordByteSwap(uint8_t num, bool enabled)
 {
 	if (num > 3) return;
 	writeBit(MPU9250_RA_I2C_SLV0_CTRL + num * 3, MPU9250_I2C_SLV_BYTE_SW_BIT, enabled);
@@ -1326,7 +1313,7 @@ void setSlaveWordByteSwap(uint8_t num, bool enabled)
  * @return Current write mode for specified slave (0 = register address + data, 1 = data only)
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-bool getSlaveWriteMode(uint8_t num)
+bool MPU9250::getSlaveWriteMode(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1339,7 +1326,7 @@ bool getSlaveWriteMode(uint8_t num)
  * @see getSlaveWriteMode()
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-void setSlaveWriteMode(uint8_t num, bool mode)
+void MPU9250::setSlaveWriteMode(uint8_t num, bool mode)
 {
 	if (num > 3) return;
 	writeBit(MPU9250_RA_I2C_SLV0_CTRL + num * 3, MPU9250_I2C_SLV_REG_DIS_BIT, mode);
@@ -1355,7 +1342,7 @@ void setSlaveWriteMode(uint8_t num, bool mode)
  * @return Current word pair grouping order offset for specified slave
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-bool getSlaveWordGroupOffset(uint8_t num)
+bool MPU9250::getSlaveWordGroupOffset(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1368,7 +1355,7 @@ bool getSlaveWordGroupOffset(uint8_t num)
  * @see getSlaveWordGroupOffset()
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-void setSlaveWordGroupOffset(uint8_t num, bool enabled)
+void MPU9250::setSlaveWordGroupOffset(uint8_t num, bool enabled)
 {
 	if (num > 3) return;
 	writeBit(MPU9250_RA_I2C_SLV0_CTRL + num * 3, MPU9250_I2C_SLV_GRP_BIT, enabled);
@@ -1380,7 +1367,7 @@ void setSlaveWordGroupOffset(uint8_t num, bool enabled)
  * @return Number of bytes to read for specified slave
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-uint8_t getSlaveDataLength(uint8_t num)
+uint8_t MPU9250::getSlaveDataLength(uint8_t num)
 {
 	uint8_t buffer[1];
 	if (num > 3) return 0;
@@ -1393,7 +1380,7 @@ uint8_t getSlaveDataLength(uint8_t num)
  * @see getSlaveDataLength()
  * @see MPU9250_RA_I2C_SLV0_CTRL
  */
-void setSlaveDataLength(uint8_t num, uint8_t length)
+void MPU9250::setSlaveDataLength(uint8_t num, uint8_t length)
 {
 	if (num > 3) return;
 	writeBits(MPU9250_RA_I2C_SLV0_CTRL + num * 3, MPU9250_I2C_SLV_LEN_BIT, MPU9250_I2C_SLV_LEN_LENGTH, length);
@@ -1410,7 +1397,7 @@ void setSlaveDataLength(uint8_t num, uint8_t length)
  * @see getSlaveAddress()
  * @see MPU9250_RA_I2C_SLV4_ADDR
  */
-uint8_t getSlave4Address()
+uint8_t MPU9250::getSlave4Address()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_I2C_SLV4_ADDR, buffer);
@@ -1421,7 +1408,7 @@ uint8_t getSlave4Address()
  * @see getSlave4Address()
  * @see MPU9250_RA_I2C_SLV4_ADDR
  */
-void setSlave4Address(uint8_t address)
+void MPU9250::setSlave4Address(uint8_t address)
 {
 	writeByte(MPU9250_RA_I2C_SLV4_ADDR, address);
 }
@@ -1432,7 +1419,7 @@ void setSlave4Address(uint8_t address)
  * @return Current active register for Slave 4
  * @see MPU9250_RA_I2C_SLV4_REG
  */
-uint8_t getSlave4Register()
+uint8_t MPU9250::getSlave4Register()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_I2C_SLV4_REG, buffer);
@@ -1443,7 +1430,7 @@ uint8_t getSlave4Register()
  * @see getSlave4Register()
  * @see MPU9250_RA_I2C_SLV4_REG
  */
-void setSlave4Register(uint8_t reg)
+void MPU9250::setSlave4Register(uint8_t reg)
 {
 	writeByte(MPU9250_RA_I2C_SLV4_REG, reg);
 }
@@ -1453,7 +1440,7 @@ void setSlave4Register(uint8_t reg)
  * @param data New byte to write to Slave 4
  * @see MPU9250_RA_I2C_SLV4_DO
  */
-void setSlave4OutputByte(uint8_t data)
+void MPU9250::setSlave4OutputByte(uint8_t data)
 {
 	writeByte(MPU9250_RA_I2C_SLV4_DO, data);
 }
@@ -1463,7 +1450,7 @@ void setSlave4OutputByte(uint8_t data)
  * @return Current enabled value for Slave 4
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-bool getSlave4Enabled()
+bool MPU9250::getSlave4Enabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_EN_BIT, buffer);
@@ -1474,7 +1461,7 @@ bool getSlave4Enabled()
  * @see getSlave4Enabled()
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-void setSlave4Enabled(bool enabled)
+void MPU9250::setSlave4Enabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_EN_BIT, enabled);
 }
@@ -1487,7 +1474,7 @@ void setSlave4Enabled(bool enabled)
  * @return Current enabled value for Slave 4 transaction interrupts.
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-bool getSlave4InterruptEnabled()
+bool MPU9250::getSlave4InterruptEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_INT_EN_BIT, buffer);
@@ -1498,7 +1485,7 @@ bool getSlave4InterruptEnabled()
  * @see getSlave4InterruptEnabled()
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-void setSlave4InterruptEnabled(bool enabled)
+void MPU9250::setSlave4InterruptEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_INT_EN_BIT, enabled);
 }
@@ -1511,7 +1498,7 @@ void setSlave4InterruptEnabled(bool enabled)
  * @return Current write mode for Slave 4 (0 = register address + data, 1 = data only)
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-bool getSlave4WriteMode()
+bool MPU9250::getSlave4WriteMode()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_REG_DIS_BIT, buffer);
@@ -1522,7 +1509,7 @@ bool getSlave4WriteMode()
  * @see getSlave4WriteMode()
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-void setSlave4WriteMode(bool mode)
+void MPU9250::setSlave4WriteMode(bool mode)
 {
 	writeBit(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_REG_DIS_BIT, mode);
 }
@@ -1541,7 +1528,7 @@ void setSlave4WriteMode(bool mode)
  * @return Current Slave 4 master delay value
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-uint8_t getSlave4MasterDelay()
+uint8_t MPU9250::getSlave4MasterDelay()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_MST_DLY_BIT, MPU9250_I2C_SLV4_MST_DLY_LENGTH, buffer);
@@ -1552,7 +1539,7 @@ uint8_t getSlave4MasterDelay()
  * @see getSlave4MasterDelay()
  * @see MPU9250_RA_I2C_SLV4_CTRL
  */
-void setSlave4MasterDelay(uint8_t delay)
+void MPU9250::setSlave4MasterDelay(uint8_t delay)
 {
 	writeBits(MPU9250_RA_I2C_SLV4_CTRL, MPU9250_I2C_SLV4_MST_DLY_BIT, MPU9250_I2C_SLV4_MST_DLY_LENGTH, delay);
 }
@@ -1562,7 +1549,7 @@ void setSlave4MasterDelay(uint8_t delay)
  * @return Last available byte read from to Slave 4
  * @see MPU9250_RA_I2C_SLV4_DI
  */
-uint8_t getSlate4InputByte()
+uint8_t MPU9250::getSlate4InputByte()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_I2C_SLV4_DI, buffer);
@@ -1580,7 +1567,7 @@ uint8_t getSlate4InputByte()
  * @return FSYNC interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getPassthroughStatus()
+bool MPU9250::getPassthroughStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_PASS_THROUGH_BIT, buffer);
@@ -1594,7 +1581,7 @@ bool getPassthroughStatus()
  * @return Slave 4 transaction done status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave4IsDone()
+bool MPU9250::getSlave4IsDone()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV4_DONE_BIT, buffer);
@@ -1607,7 +1594,7 @@ bool getSlave4IsDone()
  * @return Master arbitration lost status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getLostArbitration()
+bool MPU9250::getLostArbitration()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_LOST_ARB_BIT, buffer);
@@ -1620,7 +1607,7 @@ bool getLostArbitration()
  * @return Slave 4 NACK interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave4Nack()
+bool MPU9250::getSlave4Nack()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV4_NACK_BIT, buffer);
@@ -1633,7 +1620,7 @@ bool getSlave4Nack()
  * @return Slave 3 NACK interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave3Nack()
+bool MPU9250::getSlave3Nack()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV3_NACK_BIT, buffer);
@@ -1646,7 +1633,7 @@ bool getSlave3Nack()
  * @return Slave 2 NACK interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave2Nack()
+bool MPU9250::getSlave2Nack()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV2_NACK_BIT, buffer);
@@ -1659,7 +1646,7 @@ bool getSlave2Nack()
  * @return Slave 1 NACK interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave1Nack()
+bool MPU9250::getSlave1Nack()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV1_NACK_BIT, buffer);
@@ -1672,7 +1659,7 @@ bool getSlave1Nack()
  * @return Slave 0 NACK interrupt status
  * @see MPU9250_RA_I2C_MST_STATUS
  */
-bool getSlave0Nack()
+bool MPU9250::getSlave0Nack()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_STATUS, MPU9250_MST_I2C_SLV0_NACK_BIT, buffer);
@@ -1687,7 +1674,7 @@ bool getSlave0Nack()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_LEVEL_BIT
  */
-bool getInterruptMode()
+bool MPU9250::getInterruptMode()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_LEVEL_BIT, buffer);
@@ -1699,7 +1686,7 @@ bool getInterruptMode()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_LEVEL_BIT
  */
-void setInterruptMode(bool mode)
+void MPU9250::setInterruptMode(bool mode)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_LEVEL_BIT, mode);
 }
@@ -1709,7 +1696,7 @@ void setInterruptMode(bool mode)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_OPEN_BIT
  */
-bool getInterruptDrive()
+bool MPU9250::getInterruptDrive()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_OPEN_BIT, buffer);
@@ -1721,7 +1708,7 @@ bool getInterruptDrive()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_OPEN_BIT
  */
-void setInterruptDrive(bool drive)
+void MPU9250::setInterruptDrive(bool drive)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_OPEN_BIT, drive);
 }
@@ -1731,7 +1718,7 @@ void setInterruptDrive(bool drive)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_LATCH_INT_EN_BIT
  */
-bool getInterruptLatch()
+bool MPU9250::getInterruptLatch()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_LATCH_INT_EN_BIT, buffer);
@@ -1743,7 +1730,7 @@ bool getInterruptLatch()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_LATCH_INT_EN_BIT
  */
-void setInterruptLatch(bool latch)
+void MPU9250::setInterruptLatch(bool latch)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_LATCH_INT_EN_BIT, latch);
 }
@@ -1753,7 +1740,7 @@ void setInterruptLatch(bool latch)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_RD_CLEAR_BIT
  */
-bool getInterruptLatchClear()
+bool MPU9250::getInterruptLatchClear()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_RD_CLEAR_BIT, buffer);
@@ -1765,7 +1752,7 @@ bool getInterruptLatchClear()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_INT_RD_CLEAR_BIT
  */
-void setInterruptLatchClear(bool clear)
+void MPU9250::setInterruptLatchClear(bool clear)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_INT_RD_CLEAR_BIT, clear);
 }
@@ -1775,7 +1762,7 @@ void setInterruptLatchClear(bool clear)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT
  */
-bool getFSyncInterruptLevel()
+bool MPU9250::getFSyncInterruptLevel()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT, buffer);
@@ -1787,7 +1774,7 @@ bool getFSyncInterruptLevel()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT
  */
-void setFSyncInterruptLevel(bool level)
+void MPU9250::setFSyncInterruptLevel(bool level)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_FSYNC_INT_LEVEL_BIT, level);
 }
@@ -1797,7 +1784,7 @@ void setFSyncInterruptLevel(bool level)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_FSYNC_INT_EN_BIT
  */
-bool getFSyncInterruptEnabled()
+bool MPU9250::getFSyncInterruptEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_FSYNC_INT_EN_BIT, buffer);
@@ -1809,7 +1796,7 @@ bool getFSyncInterruptEnabled()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_FSYNC_INT_EN_BIT
  */
-void setFSyncInterruptEnabled(bool enabled)
+void MPU9250::setFSyncInterruptEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_FSYNC_INT_EN_BIT, enabled);
 }
@@ -1824,7 +1811,7 @@ void setFSyncInterruptEnabled(bool enabled)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
  */
-bool getI2CBypassEnabled()
+bool MPU9250::getI2CBypassEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_I2C_BYPASS_EN_BIT, buffer);
@@ -1841,7 +1828,7 @@ bool getI2CBypassEnabled()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_I2C_BYPASS_EN_BIT
  */
-void setI2CBypassEnabled(bool enabled)
+void MPU9250::setI2CBypassEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_I2C_BYPASS_EN_BIT, enabled);
 }
@@ -1854,7 +1841,7 @@ void setI2CBypassEnabled(bool enabled)
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_CLKOUT_EN_BIT
  */
-bool getClockOutputEnabled()
+bool MPU9250::getClockOutputEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_CLKOUT_EN_BIT, buffer);
@@ -1869,7 +1856,7 @@ bool getClockOutputEnabled()
  * @see MPU9250_RA_INT_PIN_CFG
  * @see MPU9250_INTCFG_CLKOUT_EN_BIT
  */
-void setClockOutputEnabled(bool enabled)
+void MPU9250::setClockOutputEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_PIN_CFG, MPU9250_INTCFG_CLKOUT_EN_BIT, enabled);
 }
@@ -1883,7 +1870,7 @@ void setClockOutputEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FF_BIT
  **/
-uint8_t getIntEnabled()
+uint8_t MPU9250::getIntEnabled()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_INT_ENABLE, buffer);
@@ -1897,7 +1884,7 @@ uint8_t getIntEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FF_BIT
  **/
-void setIntEnabled(uint8_t enabled)
+void MPU9250::setIntEnabled(uint8_t enabled)
 {
 	writeByte(MPU9250_RA_INT_ENABLE, enabled);
 }
@@ -1907,7 +1894,7 @@ void setIntEnabled(uint8_t enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FF_BIT
  **/
-bool getIntFreefallEnabled()
+bool MPU9250::getIntFreefallEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_FF_BIT, buffer);
@@ -1919,7 +1906,7 @@ bool getIntFreefallEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FF_BIT
  **/
-void setIntFreefallEnabled(bool enabled)
+void MPU9250::setIntFreefallEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_FF_BIT, enabled);
 }
@@ -1929,7 +1916,7 @@ void setIntFreefallEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_MOT_BIT
  **/
-bool getIntMotionEnabled()
+bool MPU9250::getIntMotionEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_MOT_BIT, buffer);
@@ -1941,7 +1928,7 @@ bool getIntMotionEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_MOT_BIT
  **/
-void setIntMotionEnabled(bool enabled)
+void MPU9250::setIntMotionEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_MOT_BIT, enabled);
 }
@@ -1951,7 +1938,7 @@ void setIntMotionEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_ZMOT_BIT
  **/
-bool getIntZeroMotionEnabled()
+bool MPU9250::getIntZeroMotionEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_ZMOT_BIT, buffer);
@@ -1963,7 +1950,7 @@ bool getIntZeroMotionEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_ZMOT_BIT
  **/
-void setIntZeroMotionEnabled(bool enabled)
+void MPU9250::setIntZeroMotionEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_ZMOT_BIT, enabled);
 }
@@ -1973,7 +1960,7 @@ void setIntZeroMotionEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
  **/
-bool getIntFIFOBufferOverflowEnabled()
+bool MPU9250::getIntFIFOBufferOverflowEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_FIFO_OFLOW_BIT, buffer);
@@ -1985,7 +1972,7 @@ bool getIntFIFOBufferOverflowEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
  **/
-void setIntFIFOBufferOverflowEnabled(bool enabled)
+void MPU9250::setIntFIFOBufferOverflowEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_FIFO_OFLOW_BIT, enabled);
 }
@@ -1996,7 +1983,7 @@ void setIntFIFOBufferOverflowEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
  **/
-bool getIntI2CMasterEnabled()
+bool MPU9250::getIntI2CMasterEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_I2C_MST_INT_BIT, buffer);
@@ -2008,7 +1995,7 @@ bool getIntI2CMasterEnabled()
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
  **/
-void setIntI2CMasterEnabled(bool enabled)
+void MPU9250::setIntI2CMasterEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_I2C_MST_INT_BIT, enabled);
 }
@@ -2019,7 +2006,7 @@ void setIntI2CMasterEnabled(bool enabled)
  * @see MPU9250_RA_INT_ENABLE
  * @see MPU9250_INTERRUPT_DATA_RDY_BIT
  */
-bool getIntDataReadyEnabled()
+bool MPU9250::getIntDataReadyEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_DATA_RDY_BIT, buffer);
@@ -2031,7 +2018,7 @@ bool getIntDataReadyEnabled()
  * @see MPU9250_RA_INT_CFG
  * @see MPU9250_INTERRUPT_DATA_RDY_BIT
  */
-void setIntDataReadyEnabled(bool enabled)
+void MPU9250::setIntDataReadyEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_DATA_RDY_BIT, enabled);
 }
@@ -2045,7 +2032,7 @@ void setIntDataReadyEnabled(bool enabled)
  * @return Current interrupt status
  * @see MPU9250_RA_INT_STATUS
  */
-uint8_t getIntStatus()
+uint8_t MPU9250::getIntStatus()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_INT_STATUS, buffer);
@@ -2058,7 +2045,7 @@ uint8_t getIntStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_FF_BIT
  */
-bool getIntFreefallStatus()
+bool MPU9250::getIntFreefallStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_FF_BIT, buffer);
@@ -2071,7 +2058,7 @@ bool getIntFreefallStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_MOT_BIT
  */
-bool getIntMotionStatus()
+bool MPU9250::getIntMotionStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_MOT_BIT, buffer);
@@ -2084,7 +2071,7 @@ bool getIntMotionStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_ZMOT_BIT
  */
-bool getIntZeroMotionStatus()
+bool MPU9250::getIntZeroMotionStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_ZMOT_BIT, buffer);
@@ -2097,7 +2084,7 @@ bool getIntZeroMotionStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_FIFO_OFLOW_BIT
  */
-bool getIntFIFOBufferOverflowStatus()
+bool MPU9250::getIntFIFOBufferOverflowStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_FIFO_OFLOW_BIT, buffer);
@@ -2111,7 +2098,7 @@ bool getIntFIFOBufferOverflowStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_I2C_MST_INT_BIT
  */
-bool getIntI2CMasterStatus()
+bool MPU9250::getIntI2CMasterStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_I2C_MST_INT_BIT, buffer);
@@ -2124,7 +2111,7 @@ bool getIntI2CMasterStatus()
  * @see MPU9250_RA_INT_STATUS
  * @see MPU9250_INTERRUPT_DATA_RDY_BIT
  */
-bool getIntDataReadyStatus()
+bool MPU9250::getIntDataReadyStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_DATA_RDY_BIT, buffer);
@@ -2149,7 +2136,7 @@ bool getIntDataReadyStatus()
  * @see getRotation()
  * @see MPU9250_RA_ACCEL_XOUT_H
  */
-void getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* mx, int16_t* my, int16_t* mz)
+void MPU9250::getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* mx, int16_t* my, int16_t* mz)
 {
 	getMotion6(ax, ay, az, gx, gy, gz);
 	// TODO: magnetometer integration
@@ -2166,7 +2153,7 @@ void getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy,
  * @see getRotation()
  * @see MPU9250_RA_ACCEL_XOUT_H
  */
-void getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz)
+void MPU9250::getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz)
 {
 	uint8_t buffer[14];
 	readBytes(MPU9250_RA_ACCEL_XOUT_H, 14, buffer);
@@ -2213,7 +2200,7 @@ void getMotion6(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy,
  * @param z 16-bit signed integer container for Z-axis acceleration
  * @see MPU9250_RA_GYRO_XOUT_H
  */
-void getAcceleration(int16_t* x, int16_t* y, int16_t* z)
+void MPU9250::getAcceleration(int16_t* x, int16_t* y, int16_t* z)
 {
 	uint8_t buffer[6];
 	readBytes(MPU9250_RA_ACCEL_XOUT_H, 6, buffer);
@@ -2226,7 +2213,7 @@ void getAcceleration(int16_t* x, int16_t* y, int16_t* z)
  * @see getMotion6()
  * @see MPU9250_RA_ACCEL_XOUT_H
  */
-int16_t getAccelerationX()
+int16_t MPU9250::getAccelerationX()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_ACCEL_XOUT_H, 2, buffer);
@@ -2237,7 +2224,7 @@ int16_t getAccelerationX()
  * @see getMotion6()
  * @see MPU9250_RA_ACCEL_YOUT_H
  */
-int16_t getAccelerationY()
+int16_t MPU9250::getAccelerationY()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_ACCEL_YOUT_H, 2, buffer);
@@ -2248,7 +2235,7 @@ int16_t getAccelerationY()
  * @see getMotion6()
  * @see MPU9250_RA_ACCEL_ZOUT_H
  */
-int16_t getAccelerationZ()
+int16_t MPU9250::getAccelerationZ()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_ACCEL_ZOUT_H, 2, buffer);
@@ -2261,7 +2248,7 @@ int16_t getAccelerationZ()
  * @return Temperature reading in 16-bit 2's complement format
  * @see MPU9250_RA_TEMP_OUT_H
  */
-int16_t getTemperature()
+int16_t MPU9250::getTemperature()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_TEMP_OUT_H, 2, buffer);
@@ -2302,7 +2289,7 @@ int16_t getTemperature()
  * @see getMotion6()
  * @see MPU9250_RA_GYRO_XOUT_H
  */
-void getRotation(int16_t* x, int16_t* y, int16_t* z)
+void MPU9250::getRotation(int16_t* x, int16_t* y, int16_t* z)
 {
 	uint8_t buffer[6];
 	readBytes(MPU9250_RA_GYRO_XOUT_H, 6, buffer);
@@ -2315,7 +2302,7 @@ void getRotation(int16_t* x, int16_t* y, int16_t* z)
  * @see getMotion6()
  * @see MPU9250_RA_GYRO_XOUT_H
  */
-int16_t getRotationX()
+int16_t MPU9250::getRotationX()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_GYRO_XOUT_H, 2, buffer);
@@ -2326,7 +2313,7 @@ int16_t getRotationX()
  * @see getMotion6()
  * @see MPU9250_RA_GYRO_YOUT_H
  */
-int16_t getRotationY()
+int16_t MPU9250::getRotationY()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_GYRO_YOUT_H, 2, buffer);
@@ -2337,7 +2324,7 @@ int16_t getRotationY()
  * @see getMotion6()
  * @see MPU9250_RA_GYRO_ZOUT_H
  */
-int16_t getRotationZ()
+int16_t MPU9250::getRotationZ()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_GYRO_ZOUT_H, 2, buffer);
@@ -2420,7 +2407,7 @@ int16_t getRotationZ()
  * @param position Starting position (0-23)
  * @return Byte read from register
  */
-uint8_t getExternalSensorByte(int position)
+uint8_t MPU9250::getExternalSensorByte(int position)
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_EXT_SENS_DATA_00 + position, buffer);
@@ -2431,7 +2418,7 @@ uint8_t getExternalSensorByte(int position)
  * @return Word read from register
  * @see getExternalSensorByte()
  */
-uint16_t getExternalSensorWord(int position)
+uint16_t MPU9250::getExternalSensorWord(int position)
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_EXT_SENS_DATA_00 + position, 2, buffer);
@@ -2442,7 +2429,7 @@ uint16_t getExternalSensorWord(int position)
  * @return Double word read from registers
  * @see getExternalSensorByte()
  */
-uint32_t getExternalSensorDWord(int position)
+uint32_t MPU9250::getExternalSensorDWord(int position)
 {
 	uint8_t buffer[4];
 	readBytes(MPU9250_RA_EXT_SENS_DATA_00 + position, 4, buffer);
@@ -2456,7 +2443,7 @@ uint32_t getExternalSensorDWord(int position)
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_XNEG_BIT
  */
-bool getXNegMotionDetected()
+bool MPU9250::getXNegMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_XNEG_BIT, buffer);
@@ -2467,7 +2454,7 @@ bool getXNegMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_XPOS_BIT
  */
-bool getXPosMotionDetected()
+bool MPU9250::getXPosMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_XPOS_BIT, buffer);
@@ -2478,7 +2465,7 @@ bool getXPosMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_YNEG_BIT
  */
-bool getYNegMotionDetected()
+bool MPU9250::getYNegMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_YNEG_BIT, buffer);
@@ -2489,7 +2476,7 @@ bool getYNegMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_YPOS_BIT
  */
-bool getYPosMotionDetected()
+bool MPU9250::getYPosMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_YPOS_BIT, buffer);
@@ -2500,7 +2487,7 @@ bool getYPosMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_ZNEG_BIT
  */
-bool getZNegMotionDetected()
+bool MPU9250::getZNegMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_ZNEG_BIT, buffer);
@@ -2511,7 +2498,7 @@ bool getZNegMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_ZPOS_BIT
  */
-bool getZPosMotionDetected()
+bool MPU9250::getZPosMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_ZPOS_BIT, buffer);
@@ -2522,7 +2509,7 @@ bool getZPosMotionDetected()
  * @see MPU9250_RA_MOT_DETECT_STATUS
  * @see MPU9250_MOTION_MOT_ZRMOT_BIT
  */
-bool getZeroMotionDetected()
+bool MPU9250::getZeroMotionDetected()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_MOT_DETECT_STATUS, MPU9250_MOTION_MOT_ZRMOT_BIT, buffer);
@@ -2539,7 +2526,7 @@ bool getZeroMotionDetected()
  * @param data Byte to write
  * @see MPU9250_RA_I2C_SLV0_DO
  */
-void setSlaveOutputByte(uint8_t num, uint8_t data)
+void MPU9250::setSlaveOutputByte(uint8_t num, uint8_t data)
 {
 	if (num > 3) return;
 	writeByte(MPU9250_RA_I2C_SLV0_DO + num, data);
@@ -2555,7 +2542,7 @@ void setSlaveOutputByte(uint8_t num, uint8_t data)
  * @see MPU9250_RA_I2C_MST_DELAY_CTRL
  * @see MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT
  */
-bool getExternalShadowDelayEnabled()
+bool MPU9250::getExternalShadowDelayEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_I2C_MST_DELAY_CTRL, MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT, buffer);
@@ -2567,7 +2554,7 @@ bool getExternalShadowDelayEnabled()
  * @see MPU9250_RA_I2C_MST_DELAY_CTRL
  * @see MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT
  */
-void setExternalShadowDelayEnabled(bool enabled)
+void MPU9250::setExternalShadowDelayEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_DELAY_CTRL, MPU9250_DELAYCTRL_DELAY_ES_SHADOW_BIT, enabled);
 }
@@ -2589,7 +2576,7 @@ void setExternalShadowDelayEnabled(bool enabled)
  * @see MPU9250_RA_I2C_MST_DELAY_CTRL
  * @see MPU9250_DELAYCTRL_I2C_SLV0_DLY_EN_BIT
  */
-bool getSlaveDelayEnabled(uint8_t num)
+bool MPU9250::getSlaveDelayEnabled(uint8_t num)
 {
 	uint8_t buffer[1];
 	// MPU9250_DELAYCTRL_I2C_SLV4_DLY_EN_BIT is 4, SLV3 is 3, etc.
@@ -2603,7 +2590,7 @@ bool getSlaveDelayEnabled(uint8_t num)
  * @see MPU9250_RA_I2C_MST_DELAY_CTRL
  * @see MPU9250_DELAYCTRL_I2C_SLV0_DLY_EN_BIT
  */
-void setSlaveDelayEnabled(uint8_t num, bool enabled)
+void MPU9250::setSlaveDelayEnabled(uint8_t num, bool enabled)
 {
 	writeBit(MPU9250_RA_I2C_MST_DELAY_CTRL, num, enabled);
 }
@@ -2616,7 +2603,7 @@ void setSlaveDelayEnabled(uint8_t num, bool enabled)
  * @see MPU9250_RA_SIGNAL_PATH_RESET
  * @see MPU9250_PATHRESET_GYRO_RESET_BIT
  */
-void resetGyroscopePath()
+void MPU9250::resetGyroscopePath()
 {
 	writeBit(MPU9250_RA_SIGNAL_PATH_RESET, MPU9250_PATHRESET_GYRO_RESET_BIT, true);
 }
@@ -2626,7 +2613,7 @@ void resetGyroscopePath()
  * @see MPU9250_RA_SIGNAL_PATH_RESET
  * @see MPU9250_PATHRESET_ACCEL_RESET_BIT
  */
-void resetAccelerometerPath()
+void MPU9250::resetAccelerometerPath()
 {
 	writeBit(MPU9250_RA_SIGNAL_PATH_RESET, MPU9250_PATHRESET_ACCEL_RESET_BIT, true);
 }
@@ -2636,7 +2623,7 @@ void resetAccelerometerPath()
  * @see MPU9250_RA_SIGNAL_PATH_RESET
  * @see MPU9250_PATHRESET_TEMP_RESET_BIT
  */
-void resetTemperaturePath()
+void MPU9250::resetTemperaturePath()
 {
 	writeBit(MPU9250_RA_SIGNAL_PATH_RESET, MPU9250_PATHRESET_TEMP_RESET_BIT, true);
 }
@@ -2657,7 +2644,7 @@ void resetTemperaturePath()
  * @see MPU9250_RA_MOT_DETECT_CTRL
  * @see MPU9250_DETECT_ACCEL_ON_DELAY_BIT
  */
-uint8_t getAccelerometerPowerOnDelay()
+uint8_t MPU9250::getAccelerometerPowerOnDelay()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_ACCEL_ON_DELAY_BIT, MPU9250_DETECT_ACCEL_ON_DELAY_LENGTH, buffer);
@@ -2669,7 +2656,7 @@ uint8_t getAccelerometerPowerOnDelay()
  * @see MPU9250_RA_MOT_DETECT_CTRL
  * @see MPU9250_DETECT_ACCEL_ON_DELAY_BIT
  */
-void setAccelerometerPowerOnDelay(uint8_t delay)
+void MPU9250::setAccelerometerPowerOnDelay(uint8_t delay)
 {
 	writeBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_ACCEL_ON_DELAY_BIT, MPU9250_DETECT_ACCEL_ON_DELAY_LENGTH, delay);
 }
@@ -2699,7 +2686,7 @@ void setAccelerometerPowerOnDelay(uint8_t delay)
  * @see MPU9250_RA_MOT_DETECT_CTRL
  * @see MPU9250_DETECT_FF_COUNT_BIT
  */
-uint8_t getFreefallDetectionCounterDecrement()
+uint8_t MPU9250::getFreefallDetectionCounterDecrement()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_FF_COUNT_BIT, MPU9250_DETECT_FF_COUNT_LENGTH, buffer);
@@ -2711,7 +2698,7 @@ uint8_t getFreefallDetectionCounterDecrement()
  * @see MPU9250_RA_MOT_DETECT_CTRL
  * @see MPU9250_DETECT_FF_COUNT_BIT
  */
-void setFreefallDetectionCounterDecrement(uint8_t decrement)
+void MPU9250::setFreefallDetectionCounterDecrement(uint8_t decrement)
 {
 	writeBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_FF_COUNT_BIT, MPU9250_DETECT_FF_COUNT_LENGTH, decrement);
 }
@@ -2738,7 +2725,7 @@ void setFreefallDetectionCounterDecrement(uint8_t decrement)
  * please refer to Registers 29 to 32.
  *
  */
-uint8_t getMotionDetectionCounterDecrement()
+uint8_t MPU9250::getMotionDetectionCounterDecrement()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_MOT_COUNT_BIT, MPU9250_DETECT_MOT_COUNT_LENGTH, buffer);
@@ -2750,7 +2737,7 @@ uint8_t getMotionDetectionCounterDecrement()
  * @see MPU9250_RA_MOT_DETECT_CTRL
  * @see MPU9250_DETECT_MOT_COUNT_BIT
  */
-void setMotionDetectionCounterDecrement(uint8_t decrement)
+void MPU9250::setMotionDetectionCounterDecrement(uint8_t decrement)
 {
 	writeBits(MPU9250_RA_MOT_DETECT_CTRL, MPU9250_DETECT_MOT_COUNT_BIT, MPU9250_DETECT_MOT_COUNT_LENGTH, decrement);
 }
@@ -2765,7 +2752,7 @@ void setMotionDetectionCounterDecrement(uint8_t decrement)
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_FIFO_EN_BIT
  */
-bool getFIFOEnabled()
+bool MPU9250::getFIFOEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_FIFO_EN_BIT, buffer);
@@ -2777,7 +2764,7 @@ bool getFIFOEnabled()
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_FIFO_EN_BIT
  */
-void setFIFOEnabled(bool enabled)
+void MPU9250::setFIFOEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_FIFO_EN_BIT, enabled);
 }
@@ -2792,7 +2779,7 @@ void setFIFOEnabled(bool enabled)
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
  */
-bool getI2CMasterModeEnabled()
+bool MPU9250::getI2CMasterModeEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_I2C_MST_EN_BIT, buffer);
@@ -2804,7 +2791,7 @@ bool getI2CMasterModeEnabled()
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_I2C_MST_EN_BIT
  */
-void setI2CMasterModeEnabled(bool enabled)
+void MPU9250::setI2CMasterModeEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_I2C_MST_EN_BIT, enabled);
 }
@@ -2812,7 +2799,7 @@ void setI2CMasterModeEnabled(bool enabled)
  * If this is set, the primary SPI interface will be enabled in place of the
  * disabled primary I2C interface.
  */
-void switchSPIEnabled(bool enabled)
+void MPU9250::switchSPIEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_I2C_IF_DIS_BIT, enabled);
 }
@@ -2822,7 +2809,7 @@ void switchSPIEnabled(bool enabled)
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_FIFO_RESET_BIT
  */
-void resetFIFO()
+void MPU9250::resetFIFO()
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_FIFO_RESET_BIT, true);
 }
@@ -2832,7 +2819,7 @@ void resetFIFO()
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_I2C_MST_RESET_BIT
  */
-void resetI2CMaster()
+void MPU9250::resetI2CMaster()
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_I2C_MST_RESET_BIT, true);
 }
@@ -2848,7 +2835,7 @@ void resetI2CMaster()
  * @see MPU9250_RA_USER_CTRL
  * @see MPU9250_USERCTRL_SIG_COND_RESET_BIT
  */
-void resetSensors()
+void MPU9250::resetSensors()
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_SIG_COND_RESET_BIT, true);
 }
@@ -2860,9 +2847,10 @@ void resetSensors()
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_DEVICE_RESET_BIT
  */
-void reset()
+void MPU9250::reset()
 {
 	writeBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_DEVICE_RESET_BIT, true);
+	mpuDelayMs(50);
 }
 /** Get sleep mode status.
  * Setting the SLEEP bit in the register puts the device into very low power
@@ -2875,7 +2863,7 @@ void reset()
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_SLEEP_BIT
  */
-bool getSleepEnabled()
+bool MPU9250::getSleepEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_SLEEP_BIT, buffer);
@@ -2887,7 +2875,7 @@ bool getSleepEnabled()
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_SLEEP_BIT
  */
-void setSleepEnabled(bool enabled)
+void MPU9250::setSleepEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_SLEEP_BIT, enabled);
 }
@@ -2899,7 +2887,7 @@ void setSleepEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_CYCLE_BIT
  */
-bool getWakeCycleEnabled()
+bool MPU9250::getWakeCycleEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_CYCLE_BIT, buffer);
@@ -2911,7 +2899,7 @@ bool getWakeCycleEnabled()
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_CYCLE_BIT
  */
-void setWakeCycleEnabled(bool enabled)
+void MPU9250::setWakeCycleEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_CYCLE_BIT, enabled);
 }
@@ -2926,7 +2914,7 @@ void setWakeCycleEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_TEMP_DIS_BIT
  */
-bool getTempSensorEnabled()
+bool MPU9250::getTempSensorEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_TEMP_DIS_BIT, buffer);
@@ -2942,7 +2930,7 @@ bool getTempSensorEnabled()
  * @see MPU9250_RA_PWR_MGMT_1
  * @see MPU9250_PWR1_TEMP_DIS_BIT
  */
-void setTempSensorEnabled(bool enabled)
+void MPU9250::setTempSensorEnabled(bool enabled)
 {
 	// 1 is actually disabled here
 	writeBit(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_TEMP_DIS_BIT, !enabled);
@@ -2953,7 +2941,7 @@ void setTempSensorEnabled(bool enabled)
  * @see MPU9250_PWR1_CLKSEL_BIT
  * @see MPU9250_PWR1_CLKSEL_LENGTH
  */
-uint8_t getClockSource()
+uint8_t MPU9250::getClockSource()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_CLKSEL_BIT, MPU9250_PWR1_CLKSEL_LENGTH, buffer);
@@ -2989,7 +2977,7 @@ uint8_t getClockSource()
  * @see MPU9250_PWR1_CLKSEL_BIT
  * @see MPU9250_PWR1_CLKSEL_LENGTH
  */
-void setClockSource(uint8_t source)
+void MPU9250::setClockSource(uint8_t source)
 {
 	writeBits(MPU9250_RA_PWR_MGMT_1, MPU9250_PWR1_CLKSEL_BIT, MPU9250_PWR1_CLKSEL_LENGTH, source);
 }
@@ -3019,7 +3007,7 @@ void setClockSource(uint8_t source)
  * @return Current wake frequency
  * @see MPU9250_RA_PWR_MGMT_2
  */
-uint8_t getWakeFrequency()
+uint8_t MPU9250::getWakeFrequency()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_LP_WAKE_CTRL_BIT, MPU9250_PWR2_LP_WAKE_CTRL_LENGTH, buffer);
@@ -3029,7 +3017,7 @@ uint8_t getWakeFrequency()
  * @param frequency New wake frequency
  * @see MPU9250_RA_PWR_MGMT_2
  */
-void setWakeFrequency(uint8_t frequency)
+void MPU9250::setWakeFrequency(uint8_t frequency)
 {
 	writeBits(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_LP_WAKE_CTRL_BIT, MPU9250_PWR2_LP_WAKE_CTRL_LENGTH, frequency);
 }
@@ -3040,7 +3028,7 @@ void setWakeFrequency(uint8_t frequency)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_XA_BIT
  */
-bool getStandbyXAccelEnabled()
+bool MPU9250::getStandbyXAccelEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_XA_BIT, buffer);
@@ -3052,7 +3040,7 @@ bool getStandbyXAccelEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_XA_BIT
  */
-void setStandbyXAccelEnabled(bool enabled)
+void MPU9250::setStandbyXAccelEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_XA_BIT, enabled);
 }
@@ -3062,7 +3050,7 @@ void setStandbyXAccelEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_YA_BIT
  */
-bool getStandbyYAccelEnabled()
+bool MPU9250::getStandbyYAccelEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_YA_BIT, buffer);
@@ -3074,7 +3062,7 @@ bool getStandbyYAccelEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_YA_BIT
  */
-void setStandbyYAccelEnabled(bool enabled)
+void MPU9250::setStandbyYAccelEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_YA_BIT, enabled);
 }
@@ -3084,7 +3072,7 @@ void setStandbyYAccelEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_ZA_BIT
  */
-bool getStandbyZAccelEnabled()
+bool MPU9250::getStandbyZAccelEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_ZA_BIT, buffer);
@@ -3096,7 +3084,7 @@ bool getStandbyZAccelEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_ZA_BIT
  */
-void setStandbyZAccelEnabled(bool enabled)
+void MPU9250::setStandbyZAccelEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_ZA_BIT, enabled);
 }
@@ -3106,7 +3094,7 @@ void setStandbyZAccelEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_XG_BIT
  */
-bool getStandbyXGyroEnabled()
+bool MPU9250::getStandbyXGyroEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_XG_BIT, buffer);
@@ -3118,7 +3106,7 @@ bool getStandbyXGyroEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_XG_BIT
  */
-void setStandbyXGyroEnabled(bool enabled)
+void MPU9250::setStandbyXGyroEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_XG_BIT, enabled);
 }
@@ -3128,7 +3116,7 @@ void setStandbyXGyroEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_YG_BIT
  */
-bool getStandbyYGyroEnabled()
+bool MPU9250::getStandbyYGyroEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_YG_BIT, buffer);
@@ -3140,7 +3128,7 @@ bool getStandbyYGyroEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_YG_BIT
  */
-void setStandbyYGyroEnabled(bool enabled)
+void MPU9250::setStandbyYGyroEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_YG_BIT, enabled);
 }
@@ -3150,7 +3138,7 @@ void setStandbyYGyroEnabled(bool enabled)
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_ZG_BIT
  */
-bool getStandbyZGyroEnabled()
+bool MPU9250::getStandbyZGyroEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_ZG_BIT, buffer);
@@ -3162,7 +3150,7 @@ bool getStandbyZGyroEnabled()
  * @see MPU9250_RA_PWR_MGMT_2
  * @see MPU9250_PWR2_STBY_ZG_BIT
  */
-void setStandbyZGyroEnabled(bool enabled)
+void MPU9250::setStandbyZGyroEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_PWR_MGMT_2, MPU9250_PWR2_STBY_ZG_BIT, enabled);
 }
@@ -3176,7 +3164,7 @@ void setStandbyZGyroEnabled(bool enabled)
  * set of sensor data bound to be stored in the FIFO (register 35 and 36).
  * @return Current FIFO buffer size
  */
-uint16_t getFIFOCount()
+uint16_t MPU9250::getFIFOCount()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_FIFO_COUNTH, 2, buffer);
@@ -3210,13 +3198,13 @@ uint16_t getFIFOCount()
  *
  * @return Byte from FIFO buffer
  */
-uint8_t getFIFOByte()
+uint8_t MPU9250::getFIFOByte()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_FIFO_R_W, buffer);
 	return buffer[0];
 }
-void getFIFOBytes(uint8_t *data, uint8_t length)
+void MPU9250::getFIFOBytes(uint8_t *data, uint8_t length)
 {
 	readBytes(MPU9250_RA_FIFO_R_W, length, data);
 }
@@ -3224,7 +3212,7 @@ void getFIFOBytes(uint8_t *data, uint8_t length)
  * @see getFIFOByte()
  * @see MPU9250_RA_FIFO_R_W
  */
-void setFIFOByte(uint8_t data)
+void MPU9250::setFIFOByte(uint8_t data)
 {
 	writeByte(MPU9250_RA_FIFO_R_W, data);
 }
@@ -3238,7 +3226,7 @@ void setFIFOByte(uint8_t data)
  * @see MPU9250_WHO_AM_I_BIT
  * @see MPU9250_WHO_AM_I_LENGTH
  */
-uint8_t getDeviceID()
+uint8_t MPU9250::getDeviceID()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_WHO_AM_I, MPU9250_WHO_AM_I_BIT, MPU9250_WHO_AM_I_LENGTH, buffer);
@@ -3253,7 +3241,7 @@ uint8_t getDeviceID()
  * @see MPU9250_WHO_AM_I_BIT
  * @see MPU9250_WHO_AM_I_LENGTH
  */
-void setDeviceID(uint8_t id)
+void MPU9250::setDeviceID(uint8_t id)
 {
 	writeBits(MPU9250_RA_WHO_AM_I, MPU9250_WHO_AM_I_BIT, MPU9250_WHO_AM_I_LENGTH, id);
 }
@@ -3262,226 +3250,226 @@ void setDeviceID(uint8_t id)
 
 // XG_OFFS_TC register
 
-uint8_t getOTPBankValid()
+uint8_t MPU9250::getOTPBankValid()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_XG_OFFS_TC, MPU9250_TC_OTP_BNK_VLD_BIT, buffer);
 	return buffer[0];
 }
-void setOTPBankValid(bool enabled)
+void MPU9250::setOTPBankValid(bool enabled)
 {
 	writeBit(MPU9250_RA_XG_OFFS_TC, MPU9250_TC_OTP_BNK_VLD_BIT, enabled);
 }
-int8_t getXGyroOffsetTC()
+int8_t MPU9250::getXGyroOffsetTC()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_XG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, buffer);
 	return buffer[0];
 }
-void setXGyroOffsetTC(int8_t offset)
+void MPU9250::setXGyroOffsetTC(int8_t offset)
 {
 	writeBits(MPU9250_RA_XG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, offset);
 }
 
 // YG_OFFS_TC register
 
-int8_t getYGyroOffsetTC()
+int8_t MPU9250::getYGyroOffsetTC()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_YG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, buffer);
 	return buffer[0];
 }
-void setYGyroOffsetTC(int8_t offset)
+void MPU9250::setYGyroOffsetTC(int8_t offset)
 {
 	writeBits(MPU9250_RA_YG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, offset);
 }
 
 // ZG_OFFS_TC register
 
-int8_t getZGyroOffsetTC()
+int8_t MPU9250::getZGyroOffsetTC()
 {
 	uint8_t buffer[1];
 	readBits(MPU9250_RA_ZG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, buffer);
 	return buffer[0];
 }
-void setZGyroOffsetTC(int8_t offset)
+void MPU9250::setZGyroOffsetTC(int8_t offset)
 {
 	writeBits(MPU9250_RA_ZG_OFFS_TC, MPU9250_TC_OFFSET_BIT, MPU9250_TC_OFFSET_LENGTH, offset);
 }
 
 // X_FINE_GAIN register
 
-int8_t getXFineGain()
+int8_t MPU9250::getXFineGain()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_X_FINE_GAIN, buffer);
 	return buffer[0];
 }
-void setXFineGain(int8_t gain)
+void MPU9250::setXFineGain(int8_t gain)
 {
 	writeByte(MPU9250_RA_X_FINE_GAIN, gain);
 }
 
 // Y_FINE_GAIN register
 
-int8_t getYFineGain()
+int8_t MPU9250::getYFineGain()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_Y_FINE_GAIN, buffer);
 	return buffer[0];
 }
-void setYFineGain(int8_t gain)
+void MPU9250::setYFineGain(int8_t gain)
 {
 	writeByte(MPU9250_RA_Y_FINE_GAIN, gain);
 }
 
 // Z_FINE_GAIN register
 
-int8_t getZFineGain()
+int8_t MPU9250::getZFineGain()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_Z_FINE_GAIN, buffer);
 	return buffer[0];
 }
-void setZFineGain(int8_t gain)
+void MPU9250::setZFineGain(int8_t gain)
 {
 	writeByte(MPU9250_RA_Z_FINE_GAIN, gain);
 }
 
 // XA_OFFS_* registers
 
-int16_t getXAccelOffset()
+int16_t MPU9250::getXAccelOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_XA_OFFS_H, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setXAccelOffset(int16_t offset)
+void MPU9250::setXAccelOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_XA_OFFS_H, offset);
 }
 
 // YA_OFFS_* register
 
-int16_t getYAccelOffset()
+int16_t MPU9250::getYAccelOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_YA_OFFS_H, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setYAccelOffset(int16_t offset)
+void MPU9250::setYAccelOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_YA_OFFS_H, offset);
 }
 
 // ZA_OFFS_* register
 
-int16_t getZAccelOffset()
+int16_t MPU9250::getZAccelOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_ZA_OFFS_H, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setZAccelOffset(int16_t offset)
+void MPU9250::setZAccelOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_ZA_OFFS_H, offset);
 }
 
 // XG_OFFS_USR* registers
 
-int16_t getXGyroOffset()
+int16_t MPU9250::getXGyroOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_XG_OFFS_USRH, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setXGyroOffset(int16_t offset)
+void MPU9250::setXGyroOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_XG_OFFS_USRH, offset);
 }
 
 // YG_OFFS_USR* register
 
-int16_t getYGyroOffset()
+int16_t MPU9250::getYGyroOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_YG_OFFS_USRH, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setYGyroOffset(int16_t offset)
+void MPU9250::setYGyroOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_YG_OFFS_USRH, offset);
 }
 
 // ZG_OFFS_USR* register
 
-int16_t getZGyroOffset()
+int16_t MPU9250::getZGyroOffset()
 {
 	uint8_t buffer[2];
 	readBytes(MPU9250_RA_ZG_OFFS_USRH, 2, buffer);
 	return (((int16_t)buffer[0]) << 8) | buffer[1];
 }
-void setZGyroOffset(int16_t offset)
+void MPU9250::setZGyroOffset(int16_t offset)
 {
 	writeWord(MPU9250_RA_ZG_OFFS_USRH, offset);
 }
 
 // INT_ENABLE register (DMP functions)
 
-bool getIntPLLReadyEnabled()
+bool MPU9250::getIntPLLReadyEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_PLL_RDY_INT_BIT, buffer);
 	return buffer[0];
 }
-void setIntPLLReadyEnabled(bool enabled)
+void MPU9250::setIntPLLReadyEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_PLL_RDY_INT_BIT, enabled);
 }
-bool getIntDMPEnabled()
+bool MPU9250::getIntDMPEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_DMP_INT_BIT, buffer);
 	return buffer[0];
 }
-void setIntDMPEnabled(bool enabled)
+void MPU9250::setIntDMPEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_INT_ENABLE, MPU9250_INTERRUPT_DMP_INT_BIT, enabled);
 }
 
 // DMP_INT_STATUS
 
-bool getDMPInt5Status()
+bool MPU9250::getDMPInt5Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_5_BIT, buffer);
 	return buffer[0];
 }
-bool getDMPInt4Status()
+bool MPU9250::getDMPInt4Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_4_BIT, buffer);
 	return buffer[0];
 }
-bool getDMPInt3Status()
+bool MPU9250::getDMPInt3Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_3_BIT, buffer);
 	return buffer[0];
 }
-bool getDMPInt2Status()
+bool MPU9250::getDMPInt2Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_2_BIT, buffer);
 	return buffer[0];
 }
-bool getDMPInt1Status()
+bool MPU9250::getDMPInt1Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_1_BIT, buffer);
 	return buffer[0];
 }
-bool getDMPInt0Status()
+bool MPU9250::getDMPInt0Status()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_DMP_INT_STATUS, MPU9250_DMPINT_0_BIT, buffer);
@@ -3490,13 +3478,13 @@ bool getDMPInt0Status()
 
 // INT_STATUS register (DMP functions)
 
-bool getIntPLLReadyStatus()
+bool MPU9250::getIntPLLReadyStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_PLL_RDY_INT_BIT, buffer);
 	return buffer[0];
 }
-bool getIntDMPStatus()
+bool MPU9250::getIntDMPStatus()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_INT_STATUS, MPU9250_INTERRUPT_DMP_INT_BIT, buffer);
@@ -3505,24 +3493,24 @@ bool getIntDMPStatus()
 
 // USER_CTRL register (DMP functions)
 
-bool getDMPEnabled()
+bool MPU9250::getDMPEnabled()
 {
 	uint8_t buffer[1];
 	readBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_DMP_EN_BIT, buffer);
 	return buffer[0];
 }
-void setDMPEnabled(bool enabled)
+void MPU9250::setDMPEnabled(bool enabled)
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_DMP_EN_BIT, enabled);
 }
-void resetDMP()
+void MPU9250::resetDMP()
 {
 	writeBit(MPU9250_RA_USER_CTRL, MPU9250_USERCTRL_DMP_RESET_BIT, true);
 }
 
 // BANK_SEL register
 
-void setMemoryBank(uint8_t bank, bool prefetchEnabled, bool userBank)
+void MPU9250::setMemoryBank(uint8_t bank, bool prefetchEnabled, bool userBank)
 {
 	bank &= 0x1F;
 	if (userBank) bank |= 0x20;
@@ -3532,24 +3520,24 @@ void setMemoryBank(uint8_t bank, bool prefetchEnabled, bool userBank)
 
 // MEM_START_ADDR register
 
-void setMemoryStartAddress(uint8_t address)
+void MPU9250::setMemoryStartAddress(uint8_t address)
 {
 	writeByte(MPU9250_RA_MEM_START_ADDR, address);
 }
 
 // MEM_R_W register
 
-uint8_t readMemoryByte()
+uint8_t MPU9250::readMemoryByte()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_MEM_R_W, buffer);
 	return buffer[0];
 }
-void writeMemoryByte(uint8_t data)
+void MPU9250::writeMemoryByte(uint8_t data)
 {
 	writeByte(MPU9250_RA_MEM_R_W, data);
 }
-void readMemoryBlock(uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address)
+void MPU9250::readMemoryBlock(uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address)
 {
 	setMemoryBank(bank);
 	setMemoryStartAddress(address);
@@ -3583,7 +3571,7 @@ void readMemoryBlock(uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t add
 		}
 	}
 }
-bool writeMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, bool verify, bool useProgMem)
+bool MPU9250::writeMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, bool verify, bool useProgMem)
 {
 	setMemoryBank(bank);
 	setMemoryStartAddress(address);
@@ -3652,11 +3640,11 @@ bool writeMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank, uint
 	}
 	return true;
 }
-bool writeProgMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, bool verify)
+bool MPU9250::writeProgMemoryBlock(const uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, bool verify)
 {
 	return writeMemoryBlock(data, dataSize, bank, address, verify, true);
 }
-bool writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool useProgMem)
+bool MPU9250::writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool useProgMem)
 {
 	uint8_t *progBuffer, success, special;
 	uint16_t i, j;
@@ -3720,33 +3708,33 @@ bool writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool usePr
 	}
 	return true;
 }
-bool writeProgDMPConfigurationSet(const uint8_t *data, uint16_t dataSize)
+bool MPU9250::writeProgDMPConfigurationSet(const uint8_t *data, uint16_t dataSize)
 {
 	return writeDMPConfigurationSet(data, dataSize, true);
 }
 
 // DMP_CFG_1 register
 
-uint8_t getDMPConfig1()
+uint8_t MPU9250::getDMPConfig1()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_DMP_CFG_1, buffer);
 	return buffer[0];
 }
-void setDMPConfig1(uint8_t config)
+void MPU9250::setDMPConfig1(uint8_t config)
 {
 	writeByte(MPU9250_RA_DMP_CFG_1, config);
 }
 
 // DMP_CFG_2 register
 
-uint8_t getDMPConfig2()
+uint8_t MPU9250::getDMPConfig2()
 {
 	uint8_t buffer[1];
 	readByte(MPU9250_RA_DMP_CFG_2, buffer);
 	return buffer[0];
 }
-void setDMPConfig2(uint8_t config)
+void MPU9250::setDMPConfig2(uint8_t config)
 {
 	writeByte(MPU9250_RA_DMP_CFG_2, config);
 }
@@ -3765,31 +3753,31 @@ float last_y_angle;
 float last_z_angle;
 uint8_t fifoBuffer[64]; // FIFO storage buffer
 
-bool readmpu()
-{
-	bool rd = 0;
-	fifoCount = getFIFOCount();
-	while (fifoCount >= packetSize)
-	{
-		getFIFOBytes(fifoBuffer, packetSize);
-		fifoCount -= packetSize;
-		rd = 1;
-	}
+// bool MPU9250::readmpu()
+// {
+// bool rd = 0;
+// fifoCount = getFIFOCount();
+// while (fifoCount >= packetSize)
+// {
+// getFIFOBytes(fifoBuffer, packetSize);
+// fifoCount -= packetSize;
+// rd = 1;
+// }
 
-	// dmpGetQuaternion(&q, fifoBuffer);
-	// dmpGetGravity(&gravity, &q);
-	// dmpGetYawPitchRoll(ypr, &q, &gravity);
+// // dmpGetQuaternion(&q, fifoBuffer);
+// // dmpGetGravity(&gravity, &q);
+// // dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-	// last_x_angle = ypr[2] * 180 / M_PI;
-	// last_y_angle = ypr[1] * 180 / M_PI;
-	// last_z_angle = ypr[0] * 180 / M_PI;
+// // last_x_angle = ypr[2] * 180 / M_PI;
+// // last_y_angle = ypr[1] * 180 / M_PI;
+// // last_z_angle = ypr[0] * 180 / M_PI;
 
-	return rd;
-}
+// return rd;
+// }
 
 #define E(x) x
 
-uint8_t mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val)
+uint8_t MPU9250::mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val)
 {
 	setSlave4Address(0x00 | addr);
 	setSlave4Register(reg);
@@ -3809,7 +3797,7 @@ uint8_t mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val)
 	return 1;
 }
 
-uint8_t mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val)
+uint8_t MPU9250::mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val)
 {
 	setSlave4Address(0x80 | addr);
 	setSlave4Register(reg);
@@ -3835,167 +3823,167 @@ uint8_t mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val)
 	return 1;
 }
 
-int mymain()
-{
-	uint8_t devStatus; // return status after each device operation (0 = success, !0 = error)
-	bool dmpReady = false; // set true if DMP init was successful
-
-	initialize();
-	printf("2\r\n");
-
-	uint8_t count, b;
-	count = readByte(MPU9250_RA_WHO_AM_I, &b);
-	printf("RA_WHO_AM_I %i", b);
-
-
-	// verify connection
-	printf("DeviceId: %i\r\n", getDeviceID());
-	if (testConnection())
-	{
-		printf("3\r\n");
-	}
-
-// uint8_t mpuEnableMag()
+// int mymain()
 // {
+// uint8_t devStatus; // return status after each device operation (0 = success, !0 = error)
+// bool dmpReady = false; // set true if DMP init was successful
 
-	// for (;;)
-	// {
-	// for (int i = 0; i < 3; i++)
-	// {
-	// int8_t t1 = getExternalSensorByte(i * 2 + 0);
-	// int8_t t2 = getExternalSensorByte(i * 2 + 1);
-	// int16_t t = (t1 << 8) | t2;
-	// DEBUG_PRINTLN("%d = %d", i, t);
-	// }
-	// mpuDelayMs(20);
-	// }
+// initialize();
+// printf("2\r\n");
+
+// uint8_t count, b;
+// count = readByte(MPU9250_RA_WHO_AM_I, &b);
+// printf("RA_WHO_AM_I %i", b);
+
+
+// // verify connection
+// printf("DeviceId: %i\r\n", getDeviceID());
+// if (testConnection())
+// {
+// printf("3\r\n");
 // }
-//
 
-	// load and configure the DMP
-	devStatus = dmpInitialize();
-	printf("4: %i\r\n", devStatus);
+// // uint8_t mpuEnableMag()
+// // {
 
-	resetI2CMaster();
-	setI2CMasterModeEnabled(true);
+// // for (;;)
+// // {
+// // for (int i = 0; i < 3; i++)
+// // {
+// // int8_t t1 = getExternalSensorByte(i * 2 + 0);
+// // int8_t t2 = getExternalSensorByte(i * 2 + 1);
+// // int16_t t = (t1 << 8) | t2;
+// // DEBUG_PRINTLN("%d = %d", i, t);
+// // }
+// // mpuDelayMs(20);
+// // }
+// // }
+// //
 
-	mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_RSV, 0x01);
-	mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_CNTL, 0b00010110);
+// // load and configure the DMP
+// devStatus = dmpInitialize();
+// printf("4: %i\r\n", devStatus);
 
-	resetI2CMaster();
-	setI2CMasterModeEnabled(true);
+// resetI2CMaster();
+// setI2CMasterModeEnabled(true);
 
-	// setup read
-	setSlaveAddress(0, 0b10000000 | 0x0c);
-	setSlaveRegister(0, 0x02);
-	setSlaveWordGroupOffset(0, true);
-	setSlaveWordByteSwap(0, true);
-	setSlaveDataLength(0, 8);
-	setSlaveEnabled(0, true);
+// mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_RSV, 0x01);
+// mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_CNTL, 0b00010110);
 
-	// for (;;)
-	// {
-	// uint8_t ta;
-	// mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST1, ta);
-	// for (int i = 0; i < 3; i++)
-	// {
-	// uint8_t t1 = getExternalSensorByte(1 + i * 2 + 0);
-	// uint8_t t2 = getExternalSensorByte(1 + i * 2 + 1);
-	// int16_t t = ((int16_t)t2 << 8) | (uint8_t)t1;
+// resetI2CMaster();
+// setI2CMasterModeEnabled(true);
 
-	// t1 = t2 = 0;
-	// mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 0, t1);
-	// mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 1, t2);
-	// int16_t t2t = ((int16_t)t2 << 8) | (uint8_t)t1;
-	// DEBUG_PRINTLN("%d = %6d %6d", i, t, t2t);
-	// }
-	// mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST2, ta);
-	// mpuDelayMs(100);
-	// printf("\r\n");
-	// }
+// // setup read
+// setSlaveAddress(0, 0b10000000 | 0x0c);
+// setSlaveRegister(0, 0x02);
+// setSlaveWordGroupOffset(0, true);
+// setSlaveWordByteSwap(0, true);
+// setSlaveDataLength(0, 8);
+// setSlaveEnabled(0, true);
 
-	// supply your own gyro offsets here, scaled for min sensitivity
-	/*    setXAccelOffset(-7550); // -522 -382 -475 -7482 (if drifting to the right, subtract)
-	    setYAccelOffset(6212); // 1131 1175
-	    setZAccelOffset(8157); // 1273 1289
-	    setXGyroOffset(79); // 44 42
-	    setYGyroOffset(-26); // -28 -21
-	    setZGyroOffset(10); // 17 :30:*/
+// // for (;;)
+// // {
+// // uint8_t ta;
+// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST1, ta);
+// // for (int i = 0; i < 3; i++)
+// // {
+// // uint8_t t1 = getExternalSensorByte(1 + i * 2 + 0);
+// // uint8_t t2 = getExternalSensorByte(1 + i * 2 + 1);
+// // int16_t t = ((int16_t)t2 << 8) | (uint8_t)t1;
 
-	// make sure it worked (returns 0 if so)
+// // t1 = t2 = 0;
+// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 0, t1);
+// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 1, t2);
+// // int16_t t2t = ((int16_t)t2 << 8) | (uint8_t)t1;
+// // DEBUG_PRINTLN("%d = %6d %6d", i, t, t2t);
+// // }
+// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST2, ta);
+// // mpuDelayMs(100);
+// // printf("\r\n");
+// // }
 
-	if (devStatus == 0)
-	{
-		// turn on the DMP, now that it's ready
-		//Serial.println("Enabling DMP...");
-		setDMPEnabled(true);
+// // supply your own gyro offsets here, scaled for min sensitivity
+// /*    setXAccelOffset(-7550); // -522 -382 -475 -7482 (if drifting to the right, subtract)
+// setYAccelOffset(6212); // 1131 1175
+// setZAccelOffset(8157); // 1273 1289
+// setXGyroOffset(79); // 44 42
+// setYGyroOffset(-26); // -28 -21
+// setZGyroOffset(10); // 17 :30:*/
 
-		// enable Arduino interrupt detection
-		//Serial.println("Enabling interrupt detection (Arduino external interrupt 0)...");
-		//attachInterrupt(0, dmpDataReady, RISING);
-		//mpuIntStatus = mpu.getIntStatus();
+// // make sure it worked (returns 0 if so)
 
-		// set our DMP Ready flag so the main loop() function knows it's okay to use it
-		//Serial.println("DMP ready! Waiting for first interrupt...");
-		dmpReady = true;
+// if (devStatus == 0)
+// {
+// // turn on the DMP, now that it's ready
+// //Serial.println("Enabling DMP...");
+// setDMPEnabled(true);
 
-		// get expected DMP packet size for later comparison
-		packetSize = dmpGetFIFOPacketSize();
-	}
-	else
-	{
-		// ERROR!
-		// 1 = initial memory load failed
-		// 2 = DMP configuration updates failed
-		// (if it's going to break, usually the code will be 1)
-		//Serial.print("DMP Initialization failed (code ");
-		//Serial.print(devStatus);
-		//Serial.println(")");
-	}
-	unsigned long long lastdisplayupdate = 0;
-	while (true)
-	{
-		if (readmpu())
-			// if ((ticks - lastdisplayupdate) > 100)
-		{
-			// lastdisplayupdate = ticks;
+// // enable Arduino interrupt detection
+// //Serial.println("Enabling interrupt detection (Arduino external interrupt 0)...");
+// //attachInterrupt(0, dmpDataReady, RISING);
+// //mpuIntStatus = mpu.getIntStatus();
 
-			// printf("X: %2f ", last_x_angle);
-			// printf("Y: %2f ", last_y_angle);
-			// printf("Z: %2f\r\n", last_z_angle);
+// // set our DMP Ready flag so the main loop() function knows it's okay to use it
+// //Serial.println("DMP ready! Waiting for first interrupt...");
+// dmpReady = true;
 
-			int16_t ac[3], gy[3], mg[3];
-			dmpGetAccel(ac, fifoBuffer);
-			dmpGetGyro(gy, fifoBuffer);
-			// dmpGetMag(mg, fifoBuffer);
+// // get expected DMP packet size for later comparison
+// packetSize = dmpGetFIFOPacketSize();
+// }
+// else
+// {
+// // ERROR!
+// // 1 = initial memory load failed
+// // 2 = DMP configuration updates failed
+// // (if it's going to break, usually the code will be 1)
+// //Serial.print("DMP Initialization failed (code ");
+// //Serial.print(devStatus);
+// //Serial.println(")");
+// }
+// unsigned long long lastdisplayupdate = 0;
+// while (true)
+// {
+// if (readmpu())
+// // if ((ticks - lastdisplayupdate) > 100)
+// {
+// // lastdisplayupdate = ticks;
 
-			// for (int i = 0; i < 48; i++)
-			// {
-			// printf("0x%02x ", fifoBuffer[i]);
-			// if (i == 15)
-			// printf("\r\n");
-			// if (i == 27)
-			// printf("\r\n");
-			// if (i == 33)
-			// printf("\r\n");
-			// if (i == 45)
-			// printf("\r\n");
-			// }
-			// printf("\r\n");
+// // printf("X: %2f ", last_x_angle);
+// // printf("Y: %2f ", last_y_angle);
+// // printf("Z: %2f\r\n", last_z_angle);
 
-			// printf("ax %d ay %d az %d\r\n", ac[0], ac[1], ac[2]);
-			// printf("gx %d gy %d gz %d\r\n", gy[0], gy[1], gy[2]);
-			// printf("mx %d my %d mz %d\r\n", mg[0], mg[1], mg[2]);
+// int16_t ac[3], gy[3], mg[3];
+// dmpGetAccel(ac, fifoBuffer);
+// dmpGetGyro(gy, fifoBuffer);
+// // dmpGetMag(mg, fifoBuffer);
 
-			Quaternion q;
-			dmpGetQuaternion(&q, fifoBuffer);
-			// for (int i = 0; i < 3; i++)
-			int16_t mx = getExternalSensorWord(1 + 0 * 2);
-			int16_t my = getExternalSensorWord(1 + 1 * 2);
-			int16_t mz = getExternalSensorWord(1 + 2 * 2);
-			// DEBUG_PRINTLN("%d = %8d", i, t1);
-		}
-		// mpuDelayMs(10);
-	}
+// // for (int i = 0; i < 48; i++)
+// // {
+// // printf("0x%02x ", fifoBuffer[i]);
+// // if (i == 15)
+// // printf("\r\n");
+// // if (i == 27)
+// // printf("\r\n");
+// // if (i == 33)
+// // printf("\r\n");
+// // if (i == 45)
+// // printf("\r\n");
+// // }
+// // printf("\r\n");
 
-}
+// // printf("ax %d ay %d az %d\r\n", ac[0], ac[1], ac[2]);
+// // printf("gx %d gy %d gz %d\r\n", gy[0], gy[1], gy[2]);
+// // printf("mx %d my %d mz %d\r\n", mg[0], mg[1], mg[2]);
+
+// Quaternion q;
+// dmpGetQuaternion(&q, fifoBuffer);
+// // for (int i = 0; i < 3; i++)
+// int16_t mx = getExternalSensorWord(1 + 0 * 2);
+// int16_t my = getExternalSensorWord(1 + 1 * 2);
+// int16_t mz = getExternalSensorWord(1 + 2 * 2);
+// // DEBUG_PRINTLN("%d = %8d", i, t1);
+// }
+// // mpuDelayMs(10);
+// }
+
+// }
