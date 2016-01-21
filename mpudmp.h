@@ -37,6 +37,10 @@ THE SOFTWARE.
 extern uint8_t mpuDelayMs(int delayMs);
 extern uint8_t mpuDelayUs(int delayUs);
 
+#ifndef MPU9250_CLASSNAME
+#define MPU9250_CLASSNAME MPU9250
+#endif
+
 #ifdef MPU9250_MULTIPLE_INSTANCES
 extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint8_t len, void* userdata);
 extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len, void* userdata);
@@ -51,7 +55,7 @@ extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len);
 #define METHOD static
 #endif
 
-class MPU9250
+class MPU9250_CLASSNAME
 {
 public:
 #ifdef MPU9250_MULTIPLE_INSTANCES
