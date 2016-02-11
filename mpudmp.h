@@ -34,19 +34,19 @@ THE SOFTWARE.
 #include "helper_3dmath.h"
 #include "mpudmp_registers.h"
 
-extern uint8_t mpuDelayMs(int delayMs);
-extern uint8_t mpuDelayUs(int delayUs);
+extern void mpuDelayMs(int delayMs);
+extern void mpuDelayUs(int delayUs);
 
 #ifndef MPU9250_CLASSNAME
 #define MPU9250_CLASSNAME MPU9250
 #endif
 
 #ifdef MPU9250_MULTIPLE_INSTANCES
-extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint8_t len, void* userdata);
-extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len, void* userdata);
+extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint16_t len, void* userdata);
+extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint16_t len, void* userdata);
 #else
-extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint8_t len);
-extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint8_t len);
+extern uint8_t mpuReadCommand(uint8_t cmd, uint8_t* data, uint16_t len);
+extern uint8_t mpuSendCommand(uint8_t cmd, const uint8_t* data, uint16_t len);
 #endif
 
 #ifdef MPU9250_MULTIPLE_INSTANCES
@@ -62,10 +62,11 @@ public:
 	void *userdata;
 #endif
 
-	METHOD uint8_t mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val);
-	METHOD uint8_t mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val);
+	METHOD bool writeSlaveReg(uint8_t addr, uint8_t reg, uint8_t val);
+	METHOD bool readSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val);
 
 // dmp functions
+	METHOD void flushFIFO();
 	METHOD uint8_t dmpInitialize();
 	METHOD bool dmpPacketAvailable();
 
@@ -80,69 +81,37 @@ public:
 //uint8_t dmpUnregisterFIFORateProcess(inv_obj_func func);
 	METHOD uint8_t dmpRunFIFORateProcesses();
 
-// Setup FIFO for various output
-	METHOD uint8_t dmpSendQuaternion(uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendGyro(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendLinearAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendLinearAccelInWorld(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendControlData(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendExternalSensorData(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendGravity(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendPacketNumber(uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendQuantizedAccel(uint_fast16_t elements, uint_fast16_t accuracy);
-	METHOD uint8_t dmpSendEIS(uint_fast16_t elements, uint_fast16_t accuracy);
-
 // Get Fixed Point data from FIFO
 	METHOD uint8_t dmpGetAccel(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetAccel(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetAccel(VectorInt16 *v, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetQuaternion(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetQuaternion(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetQuaternion(Quaternion *q, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGet6AxisQuaternion(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGet6AxisQuaternion(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGet6AxisQuaternion(Quaternion *q, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetRelativeQuaternion(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetRelativeQuaternion(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetRelativeQuaternion(Quaternion *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGyro(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGyro(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetGyro(VectorInt16 *v, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetMag(int16_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpSetLinearAccelFilterCoefficient(float coef);
 	METHOD uint8_t dmpGetLinearAccel(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetLinearAccel(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetLinearAccel(VectorInt16 *v, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity);
 	METHOD uint8_t dmpGetLinearAccelInWorld(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetLinearAccelInWorld(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q);
 	METHOD uint8_t dmpGetGyroAndAccelSensor(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGyroAndAccelSensor(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetGyroAndAccelSensor(VectorInt16 *g, VectorInt16 *a, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGyroSensor(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGyroSensor(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetGyroSensor(VectorInt16 *v, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetControlData(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetTemperature(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGravity(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetGravity(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetGravity(VectorInt16 *v, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetGravity(VectorFloat *v, Quaternion *q);
 	METHOD uint8_t dmpGetUnquantizedAccel(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetUnquantizedAccel(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetUnquantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetQuantizedAccel(int32_t *data, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetQuantizedAccel(int16_t *data, const uint8_t* packet = 0);
-	// METHOD uint8_t dmpGetQuantizedAccel(VectorInt16 *v, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetExternalSensorData(int32_t *data, uint16_t size, const uint8_t* packet = 0);
 	METHOD uint8_t dmpGetEIS(int32_t *data, const uint8_t* packet = 0);
-
-	// METHOD uint8_t dmpGetEuler(float *data, Quaternion *q);
-	// METHOD uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity);
 
 // Get Floating Point data from FIFO
 	METHOD uint8_t dmpGetAccelFloat(float *data, const uint8_t* packet = 0);
@@ -430,7 +399,7 @@ public:
 // FIFO_R_W register
 	METHOD uint8_t getFIFOByte();
 	METHOD void setFIFOByte(uint8_t data);
-	METHOD void getFIFOBytes(uint8_t *data, uint8_t length);
+	METHOD void getFIFOBytes(uint8_t *data, uint16_t length);
 
 // WHO_AM_I register
 	METHOD uint8_t getDeviceID();
@@ -535,15 +504,18 @@ public:
 	METHOD uint8_t getDMPConfig2();
 	METHOD void setDMPConfig2(uint8_t config);
 
-private:
+// magnetometer
+METHOD bool initMagnetometer();
+
+// private:
 	METHOD int8_t readBit(uint8_t regAddr, uint8_t bitStart, uint8_t *data);
 	METHOD int8_t readBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t *data);
 	METHOD bool writeBit(uint8_t regAddr, uint8_t bitNum, uint8_t data);
 	METHOD bool writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data);
-	METHOD int8_t readByte(uint8_t regAddr, uint8_t *data);
-	METHOD int8_t writeByte(uint8_t regAddr, uint8_t data);
-	METHOD int8_t readBytes(uint8_t regAddr, uint8_t length, uint8_t *data);
-	METHOD bool writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data);
+	METHOD int16_t readByte(uint8_t regAddr, uint8_t *data);
+	METHOD bool writeByte(uint8_t regAddr, uint8_t data);
+	METHOD int16_t readBytes(uint8_t regAddr, uint16_t length, uint8_t *data);
+	METHOD bool writeBytes(uint8_t regAddr, uint16_t length, uint8_t* data);
 	METHOD void writeWord(uint8_t regAddr, uint16_t data);
 };
 

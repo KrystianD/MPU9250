@@ -67,17 +67,17 @@ bool MPU9250_CLASSNAME::writeBits(uint8_t regAddr, uint8_t bitStart, uint8_t len
 }
 
 // byte access
-int8_t MPU9250_CLASSNAME::readByte(uint8_t regAddr, uint8_t *data)
+int16_t MPU9250_CLASSNAME::readByte(uint8_t regAddr, uint8_t *data)
 {
 	return readBytes(regAddr, 1, data);
 }
 
-int8_t MPU9250_CLASSNAME::writeByte(uint8_t regAddr, uint8_t data)
+bool MPU9250_CLASSNAME::writeByte(uint8_t regAddr, uint8_t data)
 {
 	return writeBytes(regAddr, 1, &data);
 }
 
-int8_t MPU9250_CLASSNAME::readBytes(uint8_t regAddr, uint8_t length, uint8_t *data)
+int16_t MPU9250_CLASSNAME::readBytes(uint8_t regAddr, uint16_t length, uint8_t *data)
 {
 	bool r;
 #ifdef MPU9250_MULTIPLE_INSTANCES
@@ -87,14 +87,13 @@ int8_t MPU9250_CLASSNAME::readBytes(uint8_t regAddr, uint8_t length, uint8_t *da
 #endif
 	if (!r)
 	{
-		printf("err");
-		// for (;;);
+		DEBUG_PRINTLN("mpu9250 write error");
+		return -1;
 	}
-	// mpuDelayUs(50);
 	return length;
 }
 
-bool MPU9250_CLASSNAME::writeBytes(uint8_t regAddr, uint8_t length, uint8_t* data)
+bool MPU9250_CLASSNAME::writeBytes(uint8_t regAddr, uint16_t length, uint8_t* data)
 {
 	bool r;
 #ifdef MPU9250_MULTIPLE_INSTANCES
@@ -104,8 +103,8 @@ bool MPU9250_CLASSNAME::writeBytes(uint8_t regAddr, uint8_t length, uint8_t* dat
 #endif
 	if (!r)
 	{
-		printf("err");
-		// for (;;);
+		DEBUG_PRINTLN("mpu9250 read error");
+		return false;
 	}
 	return true;
 }
@@ -168,74 +167,7 @@ uint8_t MPU9250_CLASSNAME::dmpGetQuaternionFloat(float *data, const uint8_t* pac
 	}
 	return status; // int16 return value, indicates error if this line is reached
 }
-// uint8_t MPU9250_CLASSNAME::dmpSetLinearAccelFilterCoefficient(float coef);
-// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccel(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccel(VectorInt16 *v, VectorInt16 *vRaw, VectorFloat *gravity)
-// {
-	// // get rid of the gravity component (+1g = +8192 in standard DMP FIFO packet, sensitivity is 2g)
-	// v->x = vRaw->x - gravity->x * 8192;
-	// v->y = vRaw->y - gravity->y * 8192;
-	// v->z = vRaw->z - gravity->z * 8192;
-	// return 0;
-// }
-// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccelInWorld(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetLinearAccelInWorld(VectorInt16 *v, VectorInt16 *vReal, Quaternion *q)
-// {
-	// // rotate measured 3D acceleration vector into original state
-	// // frame of reference based on orientation quaternion
-	// memcpy(v, vReal, sizeof(VectorInt16));
-	// v->rotate(q);
-	// return 0;
-// }
-// uint8_t MPU9250_CLASSNAME::dmpGetGyroAndAccelSensor(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetGyroSensor(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetControlData(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetTemperature(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetGravity(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetGravity(VectorFloat *v, Quaternion *q)
-// {
-	// v->x = 2 * (q->x * q->z - q->w * q->y);
-	// v->y = 2 * (q->w * q->x + q->y * q->z);
-	// v->z = q->w * q->w - q->x * q->x - q->y * q->y + q->z * q->z;
-	// return 0;
-// }
-// uint8_t MPU9250_CLASSNAME::dmpGetUnquantizedAccel(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetQuantizedAccel(long *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetExternalSensorData(long *data, int size, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetEIS(long *data, const uint8_t* packet);
 
-// uint8_t MPU9250_CLASSNAME::dmpGetEuler(float *data, Quaternion *q)
-// {
-	// data[0] = atan2(2 * q->x * q->y - 2 * q->w * q->z, 2 * q->w * q->w + 2 * q->x * q->x - 1); // psi
-	// data[1] = -asin(2 * q->x * q->z + 2 * q->w * q->y);                      // theta
-	// data[2] = atan2(2 * q->y * q->z - 2 * q->w * q->x, 2 * q->w * q->w + 2 * q->z * q->z - 1); // phi
-	// return 0;
-// }
-// uint8_t MPU9250_CLASSNAME::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
-// {
-	// // yaw: (about Z axis)
-	// data[0] = atan2(2 * q->x * q->y - 2 * q->w * q->z, 2 * q->w * q->w + 2 * q->x * q->x - 1);
-	// // pitch: (nose up/down, about Y axis)
-	// data[1] = atan(gravity->x / sqrt(gravity->y * gravity->y + gravity->z * gravity->z));
-	// // roll: (tilt left/right, about X axis)
-	// data[2] = atan(gravity->y / sqrt(gravity->x * gravity->x + gravity->z * gravity->z));
-	// return 0;
-// }
-
-// uint8_t MPU9250_CLASSNAME::dmpGetAccelFloat(float *data, const uint8_t* packet);
-// uint8_t MPU9250_CLASSNAME::dmpGetQuaternionFloat(float *data, const uint8_t* packet);
-
-uint8_t MPU9250_CLASSNAME::dmpProcessFIFOPacket(const unsigned char *dmpData)
-{
-	/*for (uint8_t k = 0; k < dmpPacketSize; k++) {
-	    if (dmpData[k] < 0x10) Serial.print("0");
-	    Serial.print(dmpData[k], HEX);
-	    Serial.print(" ");
-	}
-	Serial.print("\n");*/
-	//Serial.println((uint16_t)dmpPacketBuffer);
-	return 0;
-}
 uint8_t MPU9250_CLASSNAME::dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8_t *processed)
 {
 	uint8_t status;
@@ -249,7 +181,7 @@ uint8_t MPU9250_CLASSNAME::dmpReadAndProcessFIFOPacket(uint8_t numPackets, uint8
 		if ((status = dmpProcessFIFOPacket(buf)) > 0) return status;
 
 		// increment external process count variable, if supplied
-		if (processed != 0) (*processed)++;
+		if (processed != 0)(*processed)++;
 	}
 	return 0;
 }
@@ -282,15 +214,15 @@ uint16_t MPU9250_CLASSNAME::dmpGetFIFOPacketSize()
 void MPU9250_CLASSNAME::initialize()
 {
 	setClockSource(MPU9250_CLOCK_PLL_XGYRO);
-#ifdef	DEBUG
+#ifdef MPU9250_DEBUG
 	printf("Clock source: %i %i\r\n", MPU9250_CLOCK_PLL_XGYRO, getClockSource());
 #endif
 	setFullScaleGyroRange(MPU9250_GYRO_FS_250);
-#ifdef	DEBUG
+#ifdef MPU9250_DEBUG
 	printf("FullScaleGyroRange: %i %i\r\n", MPU9250_GYRO_FS_250, getFullScaleGyroRange());
 #endif
 	setFullScaleAccelRange(MPU9250_ACCEL_FS_2);
-#ifdef	DEBUG
+#ifdef MPU9250_DEBUG
 	printf("FullScaleAccelRange: %i %i\r\n", MPU9250_ACCEL_FS_2, getFullScaleAccelRange());
 #endif
 	setSleepEnabled(false); // thanks to Jack Elston for pointing this one out!
@@ -2152,7 +2084,10 @@ bool MPU9250_CLASSNAME::getIntDataReadyStatus()
 void MPU9250_CLASSNAME::getMotion9(int16_t* ax, int16_t* ay, int16_t* az, int16_t* gx, int16_t* gy, int16_t* gz, int16_t* mx, int16_t* my, int16_t* mz)
 {
 	getMotion6(ax, ay, az, gx, gy, gz);
-	// TODO: magnetometer integration
+
+	*mx = getExternalSensorWord(1 + 0 * 2);
+	*my = getExternalSensorWord(1 + 1 * 2);
+	*mz = getExternalSensorWord(1 + 2 * 2);
 }
 /** Get raw 6-axis motion sensor readings (accel/gyro).
  * Retrieves all currently available motion sensor values.
@@ -3217,7 +3152,7 @@ uint8_t MPU9250_CLASSNAME::getFIFOByte()
 	readByte(MPU9250_RA_FIFO_R_W, buffer);
 	return buffer[0];
 }
-void MPU9250_CLASSNAME::getFIFOBytes(uint8_t *data, uint8_t length)
+void MPU9250_CLASSNAME::getFIFOBytes(uint8_t *data, uint16_t length)
 {
 	readBytes(MPU9250_RA_FIFO_R_W, length, data);
 }
@@ -3592,7 +3527,7 @@ bool MPU9250_CLASSNAME::writeMemoryBlock(const uint8_t *data, uint16_t dataSize,
 	uint8_t verifyBuffer[MPU9250_DMP_MEMORY_CHUNK_SIZE];
 	uint8_t *progBuffer;
 	uint16_t i;
-	uint8_t j;
+	// uint8_t j;
 	for (i = 0; i < dataSize;)
 	{
 		// determine correct chunk size according to bank position and data size
@@ -3609,7 +3544,7 @@ bool MPU9250_CLASSNAME::writeMemoryBlock(const uint8_t *data, uint16_t dataSize,
 		writeBytes(MPU9250_RA_MEM_R_W, chunkSize, progBuffer);
 
 		// verify data if needed
-		if (verify && verifyBuffer)
+		if (verify)
 		{
 			setMemoryBank(bank);
 			setMemoryStartAddress(address);
@@ -3660,7 +3595,7 @@ bool MPU9250_CLASSNAME::writeProgMemoryBlock(const uint8_t *data, uint16_t dataS
 bool MPU9250_CLASSNAME::writeDMPConfigurationSet(const uint8_t *data, uint16_t dataSize, bool useProgMem)
 {
 	uint8_t *progBuffer, success, special;
-	uint16_t i, j;
+	uint16_t i;
 
 	// config set data is a long string of blocks with the following structure:
 	// [bank] [offset] [length] [byte[0], byte[1], ..., byte[length]]
@@ -3752,52 +3687,36 @@ void MPU9250_CLASSNAME::setDMPConfig2(uint8_t config)
 	writeByte(MPU9250_RA_DMP_CFG_2, config);
 }
 
-uint16_t fifoCount;
-Quaternion q; // [w, x, y, z] quaternion container
-VectorInt16 aa; // [x, y, z] accel sensor measurements
-VectorInt16 aaReal; // [x, y, z] gravity-free accel sensor measurements
-VectorInt16 aaWorld; // [x, y, z] world-frame accel sensor measurements
-VectorFloat gravity; // [x, y, z] gravity vector
-float euler[3]; // [psi, theta, phi] Euler angle container
-float ypr[3]; // [yaw, pitch, roll] yaw/pitch/roll container and gravity vector
-uint16_t packetSize; // expected DMP packet size (default is 42 bytes)
-float last_x_angle;  // These are the filtered angles
-float last_y_angle;
-float last_z_angle;
-uint8_t fifoBuffer[64]; // FIFO storage buffer
+bool MPU9250_CLASSNAME::initMagnetometer()
+{
+	resetI2CMaster();
+	setI2CMasterModeEnabled(true);
 
-// bool MPU9250_CLASSNAME::readmpu()
-// {
-// bool rd = 0;
-// fifoCount = getFIFOCount();
-// while (fifoCount >= packetSize)
-// {
-// getFIFOBytes(fifoBuffer, packetSize);
-// fifoCount -= packetSize;
-// rd = 1;
-// }
+	writeSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_RSV, 0x01);
+	writeSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_CNTL, 0x16);
 
-// // dmpGetQuaternion(&q, fifoBuffer);
-// // dmpGetGravity(&gravity, &q);
-// // dmpGetYawPitchRoll(ypr, &q, &gravity);
+	resetI2CMaster();
+	setI2CMasterModeEnabled(true);
 
-// // last_x_angle = ypr[2] * 180 / M_PI;
-// // last_y_angle = ypr[1] * 180 / M_PI;
-// // last_z_angle = ypr[0] * 180 / M_PI;
+	// setup read
+	setSlaveAddress(0, 0b10000000 | 0x0c);
+	setSlaveRegister(0, 0x02);
+	setSlaveWordGroupOffset(0, true);
+	setSlaveWordByteSwap(0, true);
+	setSlaveDataLength(0, 8);
+	setSlaveEnabled(0, true);
 
-// return rd;
-// }
+	return true;
+}
 
-#define E(x) x
-
-uint8_t MPU9250_CLASSNAME::mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t val)
+bool MPU9250_CLASSNAME::writeSlaveReg(uint8_t addr, uint8_t reg, uint8_t val)
 {
 	setSlave4Address(0x00 | addr);
 	setSlave4Register(reg);
 	setSlave4OutputByte(val);
 	// setSlave4MasterDelay(1);
 	setSlave4Enabled(true);
-	int i;
+	// int i;
 	mpuDelayMs(2);
 	// for (i = 0; i < 100; i++)
 	// {
@@ -3807,10 +3726,10 @@ uint8_t MPU9250_CLASSNAME::mpuWriteSlaveReg(uint8_t addr, uint8_t reg, uint8_t v
 	// mpuDelayMs(10);
 	// }
 	// DEBUG_PRINTLN("timeout");
-	return 1;
+	return true;
 }
 
-uint8_t MPU9250_CLASSNAME::mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val)
+bool MPU9250_CLASSNAME::readSlaveReg(uint8_t addr, uint8_t reg, uint8_t& val)
 {
 	setSlave4Address(0x80 | addr);
 	setSlave4Register(reg);
@@ -3821,182 +3740,17 @@ uint8_t MPU9250_CLASSNAME::mpuReadSlaveReg(uint8_t addr, uint8_t reg, uint8_t& v
 
 	val = getSlate4InputByte();
 
-	return 0;
-	int i;
-	for (i = 0; i < 100; i++)
-	{
-		if (getSlave4IsDone())
-		{
-			return 0;
-		}
-		DEBUG_PRINTLN("wait");
-		mpuDelayMs(10);
-	}
-	DEBUG_PRINTLN("timeout");
-	return 1;
+	return true;
+	// int i;
+	// for (i = 0; i < 100; i++)
+	// {
+		// if (getSlave4IsDone())
+		// {
+			// return 0;
+		// }
+		// DEBUG_PRINTLN("wait");
+		// mpuDelayMs(10);
+	// }
+	// DEBUG_PRINTLN("timeout");
+	// return 1;
 }
-
-// int mymain()
-// {
-// uint8_t devStatus; // return status after each device operation (0 = success, !0 = error)
-// bool dmpReady = false; // set true if DMP init was successful
-
-// initialize();
-// printf("2\r\n");
-
-// uint8_t count, b;
-// count = readByte(MPU9250_RA_WHO_AM_I, &b);
-// printf("RA_WHO_AM_I %i", b);
-
-
-// // verify connection
-// printf("DeviceId: %i\r\n", getDeviceID());
-// if (testConnection())
-// {
-// printf("3\r\n");
-// }
-
-// // uint8_t mpuEnableMag()
-// // {
-
-// // for (;;)
-// // {
-// // for (int i = 0; i < 3; i++)
-// // {
-// // int8_t t1 = getExternalSensorByte(i * 2 + 0);
-// // int8_t t2 = getExternalSensorByte(i * 2 + 1);
-// // int16_t t = (t1 << 8) | t2;
-// // DEBUG_PRINTLN("%d = %d", i, t);
-// // }
-// // mpuDelayMs(20);
-// // }
-// // }
-// //
-
-// // load and configure the DMP
-// devStatus = dmpInitialize();
-// printf("4: %i\r\n", devStatus);
-
-// resetI2CMaster();
-// setI2CMasterModeEnabled(true);
-
-// mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_RSV, 0x01);
-// mpuWriteSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_CNTL, 0b00010110);
-
-// resetI2CMaster();
-// setI2CMasterModeEnabled(true);
-
-// // setup read
-// setSlaveAddress(0, 0b10000000 | 0x0c);
-// setSlaveRegister(0, 0x02);
-// setSlaveWordGroupOffset(0, true);
-// setSlaveWordByteSwap(0, true);
-// setSlaveDataLength(0, 8);
-// setSlaveEnabled(0, true);
-
-// // for (;;)
-// // {
-// // uint8_t ta;
-// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST1, ta);
-// // for (int i = 0; i < 3; i++)
-// // {
-// // uint8_t t1 = getExternalSensorByte(1 + i * 2 + 0);
-// // uint8_t t2 = getExternalSensorByte(1 + i * 2 + 1);
-// // int16_t t = ((int16_t)t2 << 8) | (uint8_t)t1;
-
-// // t1 = t2 = 0;
-// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 0, t1);
-// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_XOUT_L + i * 2 + 1, t2);
-// // int16_t t2t = ((int16_t)t2 << 8) | (uint8_t)t1;
-// // DEBUG_PRINTLN("%d = %6d %6d", i, t, t2t);
-// // }
-// // mpuReadSlaveReg(MPU9250_MAG_ADDRESS, MPU9250_MAG_ST2, ta);
-// // mpuDelayMs(100);
-// // printf("\r\n");
-// // }
-
-// // supply your own gyro offsets here, scaled for min sensitivity
-// /*    setXAccelOffset(-7550); // -522 -382 -475 -7482 (if drifting to the right, subtract)
-// setYAccelOffset(6212); // 1131 1175
-// setZAccelOffset(8157); // 1273 1289
-// setXGyroOffset(79); // 44 42
-// setYGyroOffset(-26); // -28 -21
-// setZGyroOffset(10); // 17 :30:*/
-
-// // make sure it worked (returns 0 if so)
-
-// if (devStatus == 0)
-// {
-// // turn on the DMP, now that it's ready
-// //Serial.println("Enabling DMP...");
-// setDMPEnabled(true);
-
-// // enable Arduino interrupt detection
-// //Serial.println("Enabling interrupt detection (Arduino external interrupt 0)...");
-// //attachInterrupt(0, dmpDataReady, RISING);
-// //mpuIntStatus = mpu.getIntStatus();
-
-// // set our DMP Ready flag so the main loop() function knows it's okay to use it
-// //Serial.println("DMP ready! Waiting for first interrupt...");
-// dmpReady = true;
-
-// // get expected DMP packet size for later comparison
-// packetSize = dmpGetFIFOPacketSize();
-// }
-// else
-// {
-// // ERROR!
-// // 1 = initial memory load failed
-// // 2 = DMP configuration updates failed
-// // (if it's going to break, usually the code will be 1)
-// //Serial.print("DMP Initialization failed (code ");
-// //Serial.print(devStatus);
-// //Serial.println(")");
-// }
-// unsigned long long lastdisplayupdate = 0;
-// while (true)
-// {
-// if (readmpu())
-// // if ((ticks - lastdisplayupdate) > 100)
-// {
-// // lastdisplayupdate = ticks;
-
-// // printf("X: %2f ", last_x_angle);
-// // printf("Y: %2f ", last_y_angle);
-// // printf("Z: %2f\r\n", last_z_angle);
-
-// int16_t ac[3], gy[3], mg[3];
-// dmpGetAccel(ac, fifoBuffer);
-// dmpGetGyro(gy, fifoBuffer);
-// // dmpGetMag(mg, fifoBuffer);
-
-// // for (int i = 0; i < 48; i++)
-// // {
-// // printf("0x%02x ", fifoBuffer[i]);
-// // if (i == 15)
-// // printf("\r\n");
-// // if (i == 27)
-// // printf("\r\n");
-// // if (i == 33)
-// // printf("\r\n");
-// // if (i == 45)
-// // printf("\r\n");
-// // }
-// // printf("\r\n");
-
-// // printf("ax %d ay %d az %d\r\n", ac[0], ac[1], ac[2]);
-// // printf("gx %d gy %d gz %d\r\n", gy[0], gy[1], gy[2]);
-// // printf("mx %d my %d mz %d\r\n", mg[0], mg[1], mg[2]);
-
-// Quaternion q;
-// dmpGetQuaternion(&q, fifoBuffer);
-// // for (int i = 0; i < 3; i++)
-// int16_t mx = getExternalSensorWord(1 + 0 * 2);
-// int16_t my = getExternalSensorWord(1 + 1 * 2);
-// int16_t mz = getExternalSensorWord(1 + 2 * 2);
-// // DEBUG_PRINTLN("%d = %8d", i, t1);
-// }
-// // mpuDelayMs(10);
-// }
-
-// }

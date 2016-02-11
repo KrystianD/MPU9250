@@ -192,7 +192,7 @@ const unsigned char dmpConfig[MPU9250_DMP_CONFIG_SIZE] =
 	0x07,   0x46,   0x01,   0x9A,                     // CFG_GYRO_SOURCE inv_send_gyro
 	0x07,   0x47,   0x04,   0xF1, 0x28, 0x30, 0x38,   // CFG_9 inv_send_gyro -> inv_construct3_fifo
 	0x07,   0x6C,   0x04,   0xF1, 0x28, 0x30, 0x38,   // CFG_12 inv_send_accel -> inv_construct3_fifo
-	0x02,   0x16,   0x02,   0x00, 0x03                // D_0_22 inv_set_fifo_rate
+	0x02,   0x16,   0x02,   0x00, 0x01                // D_0_22 inv_set_fifo_rate
 
 	// This very last 0x01 WAS a 0x09, which drops the FIFO rate down to 20 Hz. 0x07 is 25 Hz,
 	// 0x01 is 100Hz. Going faster than 100Hz (0x00=200Hz) tends to result in very noisy data.
@@ -213,8 +213,29 @@ const unsigned char dmpUpdates[MPU9250_DMP_UPDATES_SIZE] =
 	0x00,   0x60,   0x04,   0x00, 0x40, 0x00, 0x00
 };
 
+void MPU9250_CLASSNAME::flushFIFO()
+{
+	DEBUG_PRINTLN("Reading FIFO count...");
+	// return;
+	uint16_t fifoCount = getFIFOCount();
+	while (fifoCount > 0)
+	{
+		uint8_t fifoBuffer[256];
+
+		DEBUG_PRINTLN("Current FIFO count=%d", fifoCount);
+		uint16_t toRead = fifoCount;
+		if (toRead > sizeof(fifoBuffer))
+			toRead = sizeof(fifoBuffer);
+		getFIFOBytes(fifoBuffer, toRead);
+		fifoCount = getFIFOCount();
+		break;
+	}
+}
+
 uint8_t MPU9250_CLASSNAME::dmpInitialize()
 {
+	uint16_t fifoCount;
+
 	// reset device
 	DEBUG_PRINTLN("Resetting MPU9250...");
 	reset();
@@ -326,13 +347,7 @@ uint8_t MPU9250_CLASSNAME::dmpInitialize()
 			DEBUG_PRINTLN("Resetting FIFO...");
 			resetFIFO();
 
-			DEBUG_PRINTLN("Reading FIFO count...");
-			uint16_t fifoCount = getFIFOCount();
-			uint8_t fifoBuffer[128];
-
-			DEBUG_PRINTLN("Current FIFO count=%d", fifoCount);
-			if (fifoCount > 0)
-				getFIFOBytes(fifoBuffer, fifoCount);
+			// flushFIFO();
 
 			DEBUG_PRINTLN("Setting motion detection threshold to 2...");
 			setMotionDetectionThreshold(2);
@@ -373,9 +388,8 @@ uint8_t MPU9250_CLASSNAME::dmpInitialize()
 			DEBUG_PRINTLN("Waiting for FIFO count > 2...");
 			while ((fifoCount = getFIFOCount()) < 3);
 
-			DEBUG_PRINTLN("Current FIFO count=%d", fifoCount);
-			DEBUG_PRINTLN("Reading FIFO data...");
-			getFIFOBytes(fifoBuffer, fifoCount);
+			// flushFIFO();
+			resetFIFO();
 
 			DEBUG_PRINTLN("Reading interrupt status...");
 			uint8_t mpuIntStatus = getIntStatus();
@@ -389,10 +403,8 @@ uint8_t MPU9250_CLASSNAME::dmpInitialize()
 			DEBUG_PRINTLN("Waiting for FIFO count > 2...");
 			while ((fifoCount = getFIFOCount()) < 3);
 
-			DEBUG_PRINTLN("Current FIFO count=%d", fifoCount);
-
-			DEBUG_PRINTLN("Reading FIFO data...");
-			getFIFOBytes(fifoBuffer, fifoCount);
+			// flushFIFO();
+			resetFIFO();
 
 			DEBUG_PRINTLN("Reading interrupt status...");
 			mpuIntStatus = getIntStatus();
@@ -450,12 +462,12 @@ uint8_t MPU9250_CLASSNAME::dmpGetAccel(int16_t *data, const uint8_t* packet)
 }
 // uint8_t MPU9250_CLASSNAME::dmpGetAccel(VectorInt16 *v, const uint8_t* packet)
 // {
-	// // TODO: accommodate different arrangements of sent data (ONLY default supported now)
-	// if (packet == 0) packet = dmpPacketBuffer;
-	// v -> x = (packet[28] << 8) + packet[29];
-	// v -> y = (packet[32] << 8) + packet[33];
-	// v -> z = (packet[36] << 8) + packet[37];
-	// return 0;
+// // TODO: accommodate different arrangements of sent data (ONLY default supported now)
+// if (packet == 0) packet = dmpPacketBuffer;
+// v -> x = (packet[28] << 8) + packet[29];
+// v -> y = (packet[32] << 8) + packet[33];
+// v -> z = (packet[36] << 8) + packet[37];
+// return 0;
 // }
 uint8_t MPU9250_CLASSNAME::dmpGetGyro(int32_t *data, const uint8_t* packet)
 {
