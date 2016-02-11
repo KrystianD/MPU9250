@@ -214,17 +214,11 @@ uint16_t MPU9250_CLASSNAME::dmpGetFIFOPacketSize()
 void MPU9250_CLASSNAME::initialize()
 {
 	setClockSource(MPU9250_CLOCK_PLL_XGYRO);
-#ifdef MPU9250_DEBUG
-	printf("Clock source: %i %i\r\n", MPU9250_CLOCK_PLL_XGYRO, getClockSource());
-#endif
+	DEBUG_PRINTLN("Clock source: %i %i\r\n", MPU9250_CLOCK_PLL_XGYRO, getClockSource());
 	setFullScaleGyroRange(MPU9250_GYRO_FS_250);
-#ifdef MPU9250_DEBUG
-	printf("FullScaleGyroRange: %i %i\r\n", MPU9250_GYRO_FS_250, getFullScaleGyroRange());
-#endif
+	DEBUG_PRINTLN("FullScaleGyroRange: %i %i\r\n", MPU9250_GYRO_FS_250, getFullScaleGyroRange());
 	setFullScaleAccelRange(MPU9250_ACCEL_FS_2);
-#ifdef MPU9250_DEBUG
-	printf("FullScaleAccelRange: %i %i\r\n", MPU9250_ACCEL_FS_2, getFullScaleAccelRange());
-#endif
+	DEBUG_PRINTLN("FullScaleAccelRange: %i %i\r\n", MPU9250_ACCEL_FS_2, getFullScaleAccelRange());
 	setSleepEnabled(false); // thanks to Jack Elston for pointing this one out!
 }
 
