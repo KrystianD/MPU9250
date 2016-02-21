@@ -505,7 +505,7 @@ public:
 	METHOD void setDMPConfig2(uint8_t config);
 
 // magnetometer
-METHOD bool initMagnetometer();
+	METHOD bool initMagnetometer();
 
 // private:
 	METHOD int8_t readBit(uint8_t regAddr, uint8_t bitStart, uint8_t *data);
